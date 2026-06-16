@@ -222,7 +222,16 @@ task.spawn(function()
             task.wait(1) continue
         end
         if #babies == 0 then
-            farmStatusLbl:Set("⏳ No babies yet...")
+            farmStatusLbl:Set("⏳ No babies — spawning more...")
+            local spawners = getSpawners()
+            for _, entry in ipairs(spawners) do
+                if not farmRunning then break end
+                fireclickdetector(entry.cd)
+                spawnCount += 1
+                spawnCountLbl:Set("👶 Total Spawned: " .. spawnCount)
+                s_spawns:Set("Total Spawns: " .. spawnCount)
+                task.wait(0.5)
+            end
             task.wait(0.5) continue
         end
         for _, baby in ipairs(babies) do
