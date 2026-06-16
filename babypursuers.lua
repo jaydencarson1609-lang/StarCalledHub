@@ -50,7 +50,6 @@ local function getBabies()
         if obj.Name:find("Baby") and obj:IsA("Model") then
             local hitbox = obj:FindFirstChild("Hitbox")
             if hitbox then
-                -- skip if being held (has a weld/rigid constraint)
                 local isHeld = hitbox:FindFirstChildOfClass("WeldConstraint")
                     or hitbox:FindFirstChildOfClass("RigidConstraint")
                     or obj:FindFirstChildOfClass("WeldConstraint")
@@ -76,6 +75,16 @@ local function teleportTo(part)
     hrp.CFrame = CFrame.new(part.Position + Vector3.new(0, 5, 0))
     task.wait(0.2)
     return true
+end
+
+local function spawnAllFast()
+    local spawners = getSpawners()
+    for _, entry in ipairs(spawners) do
+        fireclickdetector(entry.cd)
+        spawnCount += 1
+        spawnCountLbl:Set("👶 Total Spawned: " .. spawnCount)
+        task.wait(0.05)
+    end
 end
 
 -- SPAWN TAB
@@ -237,9 +246,9 @@ task.spawn(function()
                 spawnCount += 1
                 spawnCountLbl:Set("👶 Total Spawned: " .. spawnCount)
                 s_spawns:Set("Total Spawns: " .. spawnCount)
-                task.wait(0.5)
+                task.wait(0.05)
             end
-            task.wait(0.5) continue
+            task.wait(0.3) continue
         end
         for _, baby in ipairs(babies) do
             if not farmRunning then break end
