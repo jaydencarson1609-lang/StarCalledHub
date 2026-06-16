@@ -1,7 +1,8 @@
 -- StarCalled Hub | Baby Pursuers
--- Auto Spawn Baby
+-- Auto Spawn + Auto Pick Up & Drop into Vent
 
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
 
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
@@ -9,18 +10,23 @@ local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 local Window = Rayfield:CreateWindow({
     Name = "★ StarCalled Hub",
     LoadingTitle = "StarCalled Hub",
-    LoadingSubtitle = "Baby Pursuers • Auto Spawner",
+    LoadingSubtitle = "Baby Pursuers • Auto Farm",
     ConfigurationSaving = { Enabled = false },
     Discord = { Enabled = false },
     KeySystem = false,
 })
 
-local SpawnTab = Window:CreateTab("👶 Spawner", 4483362458)
-local StatsTab = Window:CreateTab("📊 Stats",   4483362458)
+local SpawnTab = Window:CreateTab("👶 Spawner",  4483362458)
+local FarmTab  = Window:CreateTab("🔄 Farm",     4483362458)
+local StatsTab = Window:CreateTab("📊 Stats",    4483362458)
 
 local spawnRunning = false
+local farmRunning  = false
 local spawnCount   = 0
+local farmCount    = 0
 local spawnDelay   = 0.1
+
+local GrabEvent = ReplicatedStorage:WaitForChild("GrabEvent")
 
 local function getSpawners()
     local found = {}
@@ -38,10 +44,37 @@ local function getSpawners()
     return found
 end
 
+local function getBabies()
+    local found = {}
+    for _, obj in ipairs(workspace:GetChildren()) do
+        if obj.Name:find("Baby") and obj:IsA("Model") then
+            local hitbox = obj:FindFirstChild("Hitbox")
+            if hitbox then
+                table.insert(found, { model = obj, hitbox = hitbox })
+            end
+        end
+    end
+    return found
+end
+
+local function getVent()
+    return workspace:FindFirstChild("Vent")
+end
+
+local function teleportTo(part)
+    local character = player.Character
+    if not character then return false end
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return false end
+    hrp.CFrame = CFrame.new(part.Position + Vector3.new(0, 5, 0))
+    task.wait(0.2)
+    return true
+end
+
 -- SPAWN TAB
 SpawnTab:CreateSection("👶 Auto Spawn Controls")
-local statusLbl  = SpawnTab:CreateLabel("⚪ Status: Idle")
-local spawnerLbl = SpawnTab:CreateLabel("🔍 Spawners Found: 0")
+local spawnStatusLbl = SpawnTab:CreateLabel("⚪ Status: Idle")
+local spawnerLbl     = SpawnTab:CreateLabel("🔍 Spawners Found: 0")
 
 SpawnTab:CreateToggle({
     Name = "Auto Spawn Baby",
@@ -50,10 +83,10 @@ SpawnTab:CreateToggle({
     Callback = function(val)
         spawnRunning = val
         if val then
-            statusLbl:Set("🟢 Running...")
+            spawnStatusLbl:Set("🟢 Running...")
             Rayfield:Notify({ Title = "👶 Auto Spawn", Content = "Started!", Duration = 3, Image = 4483362458 })
         else
-            statusLbl:Set("⚪ Status: Idle")
+            spawnStatusLbl:Set("⚪ Status: Idle")
             Rayfield:Notify({ Title = "👶 Auto Spawn", Content = "Stopped.", Duration = 2, Image = 4483362458 })
         end
     end,
@@ -85,16 +118,74 @@ SpawnTab:CreateButton({
 SpawnTab:CreateSection("📈 Live Info")
 local spawnCountLbl = SpawnTab:CreateLabel("👶 Total Spawned: 0")
 
+-- FARM TAB
+FarmTab:CreateSection("🔄 Auto Pick Up & Drop")
+local farmStatusLbl = FarmTab:CreateLabel("⚪ Farm: Idle")
+local babyCountLbl  = FarmTab:CreateLabel("👶 Babies Found: 0")
+local farmCountLbl  = FarmTab:CreateLabel("✅ Dropped: 0")
+
+FarmTab:CreateToggle({
+    Name = "Auto Farm (Grab → Vent → Drop)",
+    CurrentValue = false,
+    Flag = "AutoFarm",
+    Callback = function(val)
+        farmRunning = val
+        if val then
+            local vent = getVent()
+            if not vent then
+                Rayfield:Notify({ Title = "❌ Error", Content = "Vent part not found in workspace!", Duration = 4, Image = 4483362458 })
+                farmRunning = false
+                return
+            end
+            farmStatusLbl:Set("🟢 Farming...")
+            Rayfield:Notify({ Title = "🔄 Farm", Content = "Auto farm started!", Duration = 3, Image = 4483362458 })
+        else
+            farmStatusLbl:Set("⚪ Farm: Idle")
+            Rayfield:Notify({ Title = "🔄 Farm", Content = "Stopped.", Duration = 2, Image = 4483362458 })
+        end
+    end,
+})
+
+FarmTab:CreateButton({
+    Name = "Grab & Drop Once",
+    Callback = function()
+        local babies = getBabies()
+        if #babies == 0 then
+            Rayfield:Notify({ Title = "❌ No Babies", Content = "No babies found in workspace!", Duration = 3, Image = 4483362458 })
+            return
+        end
+        local vent = getVent()
+        if not vent then
+            Rayfield:Notify({ Title = "❌ No Vent", Content = "Vent part not found!", Duration = 3, Image = 4483362458 })
+            return
+        end
+        local baby = babies[1]
+        teleportTo(baby.hitbox)
+        GrabEvent:FireServer("Grab", baby.hitbox)
+        task.wait(0.5)
+        teleportTo(vent)
+        task.wait(0.3)
+        GrabEvent:FireServer("Drop")
+        farmCount += 1
+        farmCountLbl:Set("✅ Dropped: " .. farmCount)
+        Rayfield:Notify({ Title = "✅ Done", Content = "Grabbed and dropped 1 baby!", Duration = 3, Image = 4483362458 })
+    end,
+})
+
 -- STATS TAB
 StatsTab:CreateSection("📊 Session Stats")
 local s_spawns = StatsTab:CreateLabel("Total Spawns: 0")
+local s_farm   = StatsTab:CreateLabel("Total Dropped: 0")
+local s_babies = StatsTab:CreateLabel("Babies in World: 0")
 
 StatsTab:CreateButton({
     Name = "🗑 Reset Stats",
     Callback = function()
-        spawnCount = 0
+        spawnCount = 0 farmCount = 0
         spawnCountLbl:Set("👶 Total Spawned: 0")
+        farmCountLbl:Set("✅ Dropped: 0")
         s_spawns:Set("Total Spawns: 0")
+        s_farm:Set("Total Dropped: 0")
         Rayfield:Notify({ Title = "Reset", Content = "Stats cleared!", Duration = 3, Image = 4483362458 })
     end,
 })
@@ -113,6 +204,42 @@ task.spawn(function()
             spawnCountLbl:Set("👶 Total Spawned: " .. spawnCount)
             s_spawns:Set("Total Spawns: " .. spawnCount)
             task.wait(spawnDelay)
+        end
+    end
+end)
+
+-- FARM LOOP
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        local babies = getBabies()
+        babyCountLbl:Set("👶 Babies Found: " .. #babies)
+        s_babies:Set("Babies in World: " .. #babies)
+        if not farmRunning then task.wait(0.3) continue end
+        local vent = getVent()
+        if not vent then
+            farmStatusLbl:Set("❌ Vent not found!")
+            task.wait(1) continue
+        end
+        if #babies == 0 then
+            farmStatusLbl:Set("⏳ No babies yet...")
+            task.wait(0.5) continue
+        end
+        for _, baby in ipairs(babies) do
+            if not farmRunning then break end
+            if not baby.hitbox or not baby.hitbox.Parent then continue end
+            farmStatusLbl:Set("🚀 Grabbing " .. baby.model.Name)
+            teleportTo(baby.hitbox)
+            GrabEvent:FireServer("Grab", baby.hitbox)
+            task.wait(0.5)
+            farmStatusLbl:Set("📦 Dropping at Vent...")
+            teleportTo(vent)
+            task.wait(0.3)
+            GrabEvent:FireServer("Drop")
+            farmCount += 1
+            farmCountLbl:Set("✅ Dropped: " .. farmCount)
+            s_farm:Set("Total Dropped: " .. farmCount)
+            task.wait(0.5)
         end
     end
 end)
