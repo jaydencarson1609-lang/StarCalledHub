@@ -16,12 +16,15 @@ local Window = Rayfield:CreateWindow({
     KeySystem = false,
 })
 
-local SpawnTab = Window:CreateTab("👶 Spawner",  4483362458)
-local FarmTab  = Window:CreateTab("🔄 Farm",     4483362458)
-local StatsTab = Window:CreateTab("📊 Stats",    4483362458)
+local SpawnTab  = Window:CreateTab("👶 Spawner", 4483362458)
+local FarmTab   = Window:CreateTab("🔄 Farm",    4483362458)
+local StatsTab  = Window:CreateTab("📊 Stats",   4483362458)
+local OtherTab  = Window:CreateTab("🛠 Others",  4483362458)
+local NotesTab  = Window:CreateTab("📝 Notes",   4483362458)
 
 local spawnRunning = false
 local farmRunning  = false
+local afkRunning   = false
 local spawnCount   = 0
 local farmCount    = 0
 local spawnDelay   = 0.1
@@ -75,16 +78,6 @@ local function teleportTo(part)
     hrp.CFrame = CFrame.new(part.Position + Vector3.new(0, 5, 0))
     task.wait(0.2)
     return true
-end
-
-local function spawnAllFast()
-    local spawners = getSpawners()
-    for _, entry in ipairs(spawners) do
-        fireclickdetector(entry.cd)
-        spawnCount += 1
-        spawnCountLbl:Set("👶 Total Spawned: " .. spawnCount)
-        task.wait(0.05)
-    end
 end
 
 -- SPAWN TAB
@@ -206,6 +199,64 @@ StatsTab:CreateButton({
     end,
 })
 
+-- OTHERS TAB
+OtherTab:CreateSection("🔧 Tools")
+
+OtherTab:CreateButton({
+    Name = "🔍 Load Infinite Yield",
+    Callback = function()
+        Rayfield:Notify({ Title = "🔍 Infinite Yield", Content = "Loading...", Duration = 3, Image = 4483362458 })
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
+        Rayfield:Notify({ Title = "✅ Infinite Yield", Content = "Loaded successfully!", Duration = 3, Image = 4483362458 })
+    end,
+})
+
+OtherTab:CreateSection("🚶 Anti AFK")
+local afkStatusLbl = OtherTab:CreateLabel("⚪ Anti AFK: Off")
+
+OtherTab:CreateToggle({
+    Name = "Anti AFK",
+    CurrentValue = false,
+    Flag = "AntiAFK",
+    Callback = function(val)
+        afkRunning = val
+        if val then
+            afkStatusLbl:Set("🟢 Anti AFK: On")
+            Rayfield:Notify({ Title = "🚶 Anti AFK", Content = "Anti AFK enabled!", Duration = 3, Image = 4483362458 })
+        else
+            afkStatusLbl:Set("⚪ Anti AFK: Off")
+            Rayfield:Notify({ Title = "🚶 Anti AFK", Content = "Anti AFK disabled.", Duration = 2, Image = 4483362458 })
+        end
+    end,
+})
+
+-- NOTES TAB
+NotesTab:CreateSection("📝 About")
+NotesTab:CreateLabel("★ StarCalled Hub")
+NotesTab:CreateLabel("Made by: Jayden")
+NotesTab:CreateLabel("Game: Baby Pursuers")
+NotesTab:CreateLabel("Version: 1.0.0")
+NotesTab:CreateSection("🕐 Session Info")
+local timeLbl = NotesTab:CreateLabel("🕐 Loading time...")
+
+-- Get current time
+local function getTime()
+    local success, result = pcall(function()
+        return os.date("%A %d %B %Y • %H:%M:%S")
+    end)
+    if success then return result end
+    return "Time unavailable"
+end
+
+timeLbl:Set("🕐 Loaded at: " .. getTime())
+
+NotesTab:CreateButton({
+    Name = "🔄 Refresh Time",
+    Callback = function()
+        timeLbl:Set("🕐 Loaded at: " .. getTime())
+    end,
+})
+
 -- SPAWN LOOP
 task.spawn(function()
     while true do
@@ -266,5 +317,21 @@ task.spawn(function()
             s_farm:Set("Total Dropped: " .. farmCount)
             task.wait(0.5)
         end
+    end
+end)
+
+-- ANTI AFK LOOP
+task.spawn(function()
+    while true do
+        task.wait(60)
+        if not afkRunning then continue end
+        local character = player.Character
+        if not character then continue end
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        if not hrp then continue end
+        -- slightly nudge the character to prevent AFK kick
+        hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, 0.1)
+        task.wait(0.1)
+        hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, -0.1)
     end
 end)
