@@ -50,7 +50,14 @@ local function getBabies()
         if obj.Name:find("Baby") and obj:IsA("Model") then
             local hitbox = obj:FindFirstChild("Hitbox")
             if hitbox then
-                table.insert(found, { model = obj, hitbox = hitbox })
+                -- skip if being held (has a weld/rigid constraint)
+                local isHeld = hitbox:FindFirstChildOfClass("WeldConstraint")
+                    or hitbox:FindFirstChildOfClass("RigidConstraint")
+                    or obj:FindFirstChildOfClass("WeldConstraint")
+                    or obj:FindFirstChildOfClass("RigidConstraint")
+                if not isHeld then
+                    table.insert(found, { model = obj, hitbox = hitbox })
+                end
             end
         end
     end
@@ -151,7 +158,7 @@ FarmTab:CreateButton({
     Callback = function()
         local babies = getBabies()
         if #babies == 0 then
-            Rayfield:Notify({ Title = "❌ No Babies", Content = "No babies found in workspace!", Duration = 3, Image = 4483362458 })
+            Rayfield:Notify({ Title = "❌ No Babies", Content = "No free babies found!", Duration = 3, Image = 4483362458 })
             return
         end
         local vent = getVent()
@@ -222,7 +229,7 @@ task.spawn(function()
             task.wait(1) continue
         end
         if #babies == 0 then
-            farmStatusLbl:Set("⏳ No babies — spawning more...")
+            farmStatusLbl:Set("⏳ No free babies — spawning more...")
             local spawners = getSpawners()
             for _, entry in ipairs(spawners) do
                 if not farmRunning then break end
