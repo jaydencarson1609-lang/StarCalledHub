@@ -1,4 +1,4 @@
--- 🌱 Grow a Garden 2 | StarCalled Hub - DIAGNOSTIC BUILD v2
+-- 🌱 Grow a Garden 2 | StarCalled Hub - DIAGNOSTIC BUILD v3
 
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
@@ -53,9 +53,14 @@ do
     end
 end
 
--- Get Player's Plot, with diagnostics if nothing matches
+-- Get Player's Plot — plots live under workspace.Gardens, not workspace directly
 local function getPlayerPlot()
-    for _, v in ipairs(workspace:GetChildren()) do
+    local gardens = workspace:FindFirstChild("Gardens", true)
+    if not gardens then
+        dbg("getPlayerPlot: 'Gardens' folder not found in workspace")
+        return nil
+    end
+    for _, v in ipairs(gardens:GetChildren()) do
         if v.Name:match("^Plot%d+$") then
             local owner = v:FindFirstChild("Owner")
             if owner and owner.Value == player then
@@ -63,6 +68,7 @@ local function getPlayerPlot()
             end
         end
     end
+    dbg("getPlayerPlot: no Plot under Gardens matched Owner == player")
     return nil
 end
 
@@ -112,11 +118,28 @@ DebugTab:CreateButton({
 })
 
 DebugTab:CreateButton({
+    Name = "Dump All Plots + Owners",
+    Callback = function()
+        local gardens = workspace:FindFirstChild("Gardens", true)
+        if not gardens then
+            print("[Plots] 'Gardens' folder not found")
+            return
+        end
+        for _, v in ipairs(gardens:GetChildren()) do
+            if v.Name:match("^Plot%d+$") then
+                local owner = v:FindFirstChild("Owner")
+                print("[Plots]", v.Name, "| Owner:", owner and tostring(owner.Value) or "none", "| You:", tostring(player))
+            end
+        end
+    end,
+})
+
+DebugTab:CreateButton({
     Name = "Dump Plot + Prompts",
     Callback = function()
         local plot = getPlayerPlot()
         if not plot then
-            print("[Plot] getPlayerPlot() returned nil — check Owner value / Plot naming pattern")
+            print("[Plot] getPlayerPlot() returned nil — run 'Dump All Plots + Owners' to see why")
             return
         end
         print("[Plot] Found:", plot:GetFullName())
@@ -195,14 +218,13 @@ task.spawn(function()
     end
 end)
 
--- Auto Harvest — matches by ClassName only, no name guessing
+-- Auto Harvest — plot now resolved correctly via Gardens, matches ProximityPrompt by class
 task.spawn(function()
     while true do
         if autoHarvestRunning then
             safeCall("AutoHarvest", function()
                 local plot = getPlayerPlot()
                 if not plot then
-                    dbg("AutoHarvest: no plot found for player")
                     return
                 end
                 local harvested = 0
