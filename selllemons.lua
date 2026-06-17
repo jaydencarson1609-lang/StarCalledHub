@@ -31,12 +31,10 @@ local clickCount = 0
 local upgradeCount = 0
 local rebirthCount = 0
 
--- Improved tycoon finder
 local function getTycoon()
     local tycoon = workspace:FindFirstChild("Tycoon" .. selectedTycoon)
     if tycoon then return tycoon end
     
-    -- Fallback: find your owned tycoon
     for _, v in ipairs(workspace:GetChildren()) do
         if v.Name:match("^Tycoon%d+$") and v:FindFirstChild("Owner") and v.Owner.Value == player then
             return v
@@ -58,7 +56,6 @@ local function getAllPurchaseRemotes()
     if not tycoon then return {} end
     local purchases = tycoon:FindFirstChild("Purchases")
     if not purchases then return {} end
-    
     local found = {}
     for _, obj in ipairs(purchases:GetDescendants()) do
         if obj.Name == "Purchase" and (obj:IsA("RemoteFunction") or obj:IsA("RemoteEvent")) then
@@ -68,34 +65,45 @@ local function getAllPurchaseRemotes()
     return found
 end
 
--- Click All Lemons on Trees Function
+-- IMPROVED: Click All Lemons on Trees
 local function clickAllLemonsOnTrees()
     local tycoon = getTycoon()
     if not tycoon then return 0 end
-    
+
     local constant = tycoon:FindFirstChild("Constant")
     if not constant then return 0 end
-    
-    local trees = constant:FindFirstChild("Trees")
-    if not trees then return 0 end
-    
+
+    local treesFolder = constant:FindFirstChild("Trees")
+    if not treesFolder then return 0 end
+
     local clicked = 0
-    for _, tree in ipairs(trees:GetChildren()) do
-        if tree.Name == "LemonTree" or tree.Name:find("Lemon") then
+    local clickRemote = game:GetService("ReplicatedStorage"):FindFirstChild("Core", true) and 
+                       game:GetService("ReplicatedStorage").Core:FindFirstChild("RemoteSignal", true) and
+                       game:GetService("ReplicatedStorage").Core.RemoteSignal:FindFirstChild("ClickFruitService.Clicked")
+
+    for _, tree in ipairs(treesFolder:GetChildren()) do
+        if tree.Name:find("LemonTree") then
             for _, fruit in ipairs(tree:GetChildren()) do
                 if fruit.Name == "Fruit" then
-                    local clickAttachment = fruit:FindFirstChild("ClickAttachment")
-                    if clickAttachment then
-                        local clickPart = clickAttachment:FindFirstChild("ClickPart")
-                        if clickPart then
-                            local detector = clickPart:FindFirstChildOfClass("ClickDetector")
-                            if detector then
-                                pcall(function()
-                                    fireclickdetector(detector, 0)
-                                end)
-                                clicked += 1
-                            end
+                    -- Method 1: ClickDetector
+                    local clickPart = fruit:FindFirstChild("ClickAttachment") and fruit.ClickAttachment:FindFirstChild("ClickPart")
+                    if clickPart then
+                        local detector = clickPart:FindFirstChildOfClass("ClickDetector")
+                        if detector then
+                            pcall(function()
+                                fireclickdetector(detector, 0)
+                            end)
+                            clicked += 1
                         end
+                    end
+
+                    -- Method 2: Remote (more reliable)
+                    if clickRemote then
+                        local pos = fruit.Position or fruit:GetPivot().Position
+                        pcall(function()
+                            firesignal(clickRemote.OnClientEvent, math.random(9,10) + math.random(), pos, false)
+                        end)
+                        clicked += 1
                     end
                 end
             end
@@ -325,7 +333,6 @@ OtherTab:CreateButton({
     end,
 })
 
--- NEW BUTTON IN OTHERS TAB
 OtherTab:CreateSection("🌳 Lemon Trees")
 OtherTab:CreateButton({
     Name = "🌳 Click All Lemons on Trees",
@@ -334,14 +341,14 @@ OtherTab:CreateButton({
         if count > 0 then
             Rayfield:Notify({ 
                 Title = "✅ Success!", 
-                Content = "Clicked " .. count .. " lemons on trees!", 
+                Content = "Clicked " .. count .. " lemons!", 
                 Duration = 4, 
                 Image = 4483362458 
             })
         else
             Rayfield:Notify({ 
-                Title = "❌ No Lemons Found", 
-                Content = "No fruits with ClickDetectors found on your tycoon.", 
+                Title = "❌ No Lemons", 
+                Content = "No fruits found. Make sure trees have lemons.", 
                 Duration = 4, 
                 Image = 4483362458 
             })
@@ -368,7 +375,7 @@ NotesTab:CreateSection("📝 About")
 NotesTab:CreateLabel("★ StarCalled Hub")
 NotesTab:CreateLabel("Made by: Jayden")
 NotesTab:CreateLabel("Game: Sell Lemons 🍋")
-NotesTab:CreateLabel("Version: 1.0.3")
+NotesTab:CreateLabel("Version: 1.0.4")
 NotesTab:CreateSection("🕐 Session Info")
 local timeLbl = NotesTab:CreateLabel("🕐 Loading time...")
 local function getTime()
@@ -382,7 +389,7 @@ NotesTab:CreateButton({
     Callback = function() timeLbl:Set("🕐 Loaded at: " .. getTime()) end,
 })
 
--- ==================== AUTO LOOPS ====================
+-- Auto Loops (unchanged)
 task.spawn(function()
     while true do
         task.wait(0.1)
