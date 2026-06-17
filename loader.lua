@@ -23,13 +23,14 @@ local SUPPORTED_GAMES = {
             loadstring(game:HttpGet("https://raw.githubusercontent.com/jaydencarson1609-lang/StarCalledHub/main/selllemons.lua"))()
         end
     },
-{
-    name = "Grow a Garden 2 🌱",
-    emoji = "🌱",
-    loader = function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/jaydencarson1609-lang/StarCalledHub/main/growagarden2.lua"))()
-    end
-},
+    {
+        name = "Grow a Garden 2 🌱",
+        emoji = "🌱",
+        loader = function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/jaydencarson1609-lang/StarCalledHub/main/growagarden2.lua"))()
+        end
+    },
+}
 
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
@@ -50,10 +51,10 @@ for _, gameEntry in ipairs(SUPPORTED_GAMES) do
     GameTab:CreateButton({
         Name = gameEntry.emoji .. " " .. gameEntry.name,
         Callback = function()
-            Rayfield:Notify({ 
-                Title = "Loading", 
-                Content = "Loading " .. gameEntry.name, 
-                Duration = 3 
+            Rayfield:Notify({
+                Title = "Loading",
+                Content = "Loading " .. gameEntry.name,
+                Duration = 3
             })
             task.wait(0.5)
             Rayfield:Destroy()
