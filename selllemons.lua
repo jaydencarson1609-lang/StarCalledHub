@@ -36,7 +36,7 @@ local function getTycoon()
     local tycoon = workspace:FindFirstChild("Tycoon" .. selectedTycoon)
     if tycoon then return tycoon end
     
-    -- Fallback: try to find player's tycoon
+    -- Fallback: find your owned tycoon
     for _, v in ipairs(workspace:GetChildren()) do
         if v.Name:match("^Tycoon%d+$") and v:FindFirstChild("Owner") and v.Owner.Value == player then
             return v
@@ -68,7 +68,43 @@ local function getAllPurchaseRemotes()
     return found
 end
 
--- FARM TAB
+-- NEW: Click all lemons on trees using ClickDetectors
+local function clickAllLemonsOnTrees()
+    local tycoon = getTycoon()
+    if not tycoon then return 0 end
+    
+    local constant = tycoon:FindFirstChild("Constant")
+    if not constant then return 0 end
+    
+    local trees = constant:FindFirstChild("Trees")
+    if not trees then return 0 end
+    
+    local clicked = 0
+    for _, tree in ipairs(trees:GetChildren()) do
+        if tree.Name == "LemonTree" or tree.Name:find("LemonTree") then
+            for _, fruit in ipairs(tree:GetChildren()) do
+                if fruit.Name == "Fruit" then
+                    local clickAttachment = fruit:FindFirstChild("ClickAttachment")
+                    if clickAttachment then
+                        local clickPart = clickAttachment:FindFirstChild("ClickPart")
+                        if clickPart then
+                            local detector = clickPart:FindFirstChildOfClass("ClickDetector")
+                            if detector then
+                                pcall(function()
+                                    fireclickdetector(detector, 0) -- 0 = instant
+                                end)
+                                clicked += 1
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return clicked
+end
+
+-- ==================== FARM TAB ====================
 FarmTab:CreateSection("🎯 Tycoon Selector")
 local tycoonLbl = FarmTab:CreateLabel("🏠 Selected: Tycoon1")
 local tycoonStatusLbl = FarmTab:CreateLabel("⚪ Status: Not checked")
@@ -102,7 +138,6 @@ FarmTab:CreateButton({
     end,
 })
 
--- Auto Click Section
 FarmTab:CreateSection("🍋 Auto Click (Income)")
 local clickStatusLbl = FarmTab:CreateLabel("⚪ Auto Click: Idle")
 local clickCountLbl = FarmTab:CreateLabel("🍋 Clicks: 0")
@@ -143,36 +178,53 @@ FarmTab:CreateButton({
     end,
 })
 
--- Click Lemons
+-- Click Lemons Section
 FarmTab:CreateSection("🍋 Click Lemons")
 local clickLemonStatusLbl = FarmTab:CreateLabel("⚪ Click Lemons: Idle")
 
 FarmTab:CreateButton({
-    Name = "Click Lemons",
+    Name = "Click Lemons (Special)",
     Callback = function()
-        local tycoon = getTycoon()
-        if not tycoon then return Rayfield:Notify({ Title = "❌ Error", Content = "Tycoon not found!", Duration = 3, Image = 4483362458 }) end
-        
-        local event = getRemote("SpecialIncome") or (tycoon:FindFirstChild("Remotes") and tycoon.Remotes:FindFirstChild("SpecialIncome"))
+        local event = getRemote("SpecialIncome")
         if event then
-            pcall(function()
-                event:FireServer("ClickFruit", 7.6392762609385)
-            end)
-            clickLemonStatusLbl:Set("🟢 Clicked Lemons!")
-            Rayfield:Notify({ Title = "✅ Clicked", Content = "Lemons clicked!", Duration = 2, Image = 4483362458 })
+            pcall(function() event:FireServer("ClickFruit", 7.6392762609385) end)
+            Rayfield:Notify({ Title = "✅ Clicked", Content = "Special lemons clicked!", Duration = 2, Image = 4483362458 })
         else
             Rayfield:Notify({ Title = "❌ Error", Content = "SpecialIncome not found!", Duration = 3, Image = 4483362458 })
         end
     end,
 })
 
--- UPGRADE TAB
+-- NEW FEATURE
+FarmTab:CreateButton({
+    Name = "🌳 Click All Lemons on Trees",
+    Callback = function()
+        local count = clickAllLemonsOnTrees()
+        if count > 0 then
+            Rayfield:Notify({ 
+                Title = "✅ Success!", 
+                Content = "Clicked " .. count .. " lemons on trees!", 
+                Duration = 4, 
+                Image = 4483362458 
+            })
+        else
+            Rayfield:Notify({ 
+                Title = "❌ No Lemons", 
+                Content = "No lemon ClickDetectors found. Make sure trees have fruits.", 
+                Duration = 4, 
+                Image = 4483362458 
+            })
+        end
+    end,
+})
+
+-- ==================== UPGRADE TAB ====================
 UpgradeTab:CreateSection("⬆️ Auto Buy All Upgrades")
 local upgradeStatusLbl = UpgradeTab:CreateLabel("⚪ Auto Upgrade: Idle")
 local upgradeCountLbl = UpgradeTab:CreateLabel("⬆️ Purchases: 0")
 local upgradeFoundLbl = UpgradeTab:CreateLabel("🔍 Purchase Remotes Found: 0")
 
-FarmTab:CreateToggle({  -- Fixed: was on UpgradeTab but should be here? Wait, no — keeping on UpgradeTab
+UpgradeTab:CreateToggle({
     Name = "Auto Buy All Upgrades",
     CurrentValue = false,
     Flag = "AutoUpgrade",
@@ -227,7 +279,7 @@ UpgradeTab:CreateButton({
     end,
 })
 
--- REBIRTH TAB (simplified + safer)
+-- ==================== REBIRTH TAB ====================
 RebirthTab:CreateSection("🔄 Auto Rebirth")
 local rebirthStatusLbl = RebirthTab:CreateLabel("⚪ Auto Rebirth: Idle")
 local rebirthCountLbl = RebirthTab:CreateLabel("🔄 Rebirths: 0")
@@ -259,38 +311,50 @@ RebirthTab:CreateButton({
         local tycoon = getTycoon()
         if not tycoon then return Rayfield:Notify({ Title = "❌ Error", Content = "Tycoon not found!", Duration = 3, Image = 4483362458 }) end
         
-        -- Try Rebirth folder first
         local rebirthFolder = tycoon:FindFirstChild("Rebirth")
+        local success = false
+        
         if rebirthFolder then
             for _, obj in ipairs(rebirthFolder:GetDescendants()) do
                 if obj:IsA("RemoteFunction") or obj:IsA("RemoteEvent") then
                     pcall(function()
-                        if obj:IsA("RemoteFunction") then obj:InvokeServer(false) else obj:FireServer() end
+                        if obj:IsA("RemoteFunction") then 
+                            obj:InvokeServer(false) 
+                        else 
+                            obj:FireServer() 
+                        end
                     end)
-                    rebirthCount += 1
-                    rebirthCountLbl:Set("🔄 Rebirths: " .. rebirthCount)
-                    Rayfield:Notify({ Title = "✅ Rebirth", Content = "Fired!", Duration = 2, Image = 4483362458 })
-                    return
+                    success = true
+                    break
                 end
             end
         end
         
-        -- Fallback
-        local remote = getRemote("Rebirthed")
-        if remote then
-            pcall(function()
-                if remote:IsA("RemoteFunction") then remote:InvokeServer() else remote:FireServer() end
-            end)
+        if not success then
+            local remote = getRemote("Rebirthed")
+            if remote then
+                pcall(function()
+                    if remote:IsA("RemoteFunction") then 
+                        remote:InvokeServer() 
+                    else 
+                        remote:FireServer() 
+                    end
+                end)
+                success = true
+            end
+        end
+        
+        if success then
             rebirthCount += 1
             rebirthCountLbl:Set("🔄 Rebirths: " .. rebirthCount)
-            Rayfield:Notify({ Title = "✅ Rebirth", Content = "Fired!", Duration = 2, Image = 4483362458 })
+            Rayfield:Notify({ Title = "✅ Rebirth", Content = "Rebirth fired!", Duration = 2, Image = 4483362458 })
         else
             Rayfield:Notify({ Title = "❌ Error", Content = "No rebirth remote found!", Duration = 3, Image = 4483362458 })
         end
     end,
 })
 
--- OTHERS TAB
+-- ==================== OTHERS TAB ====================
 OtherTab:CreateSection("🔧 Tools")
 OtherTab:CreateButton({
     Name = "🔍 Load Infinite Yield",
@@ -315,12 +379,12 @@ OtherTab:CreateToggle({
     end,
 })
 
--- NOTES TAB (unchanged)
+-- ==================== NOTES TAB ====================
 NotesTab:CreateSection("📝 About")
 NotesTab:CreateLabel("★ StarCalled Hub")
 NotesTab:CreateLabel("Made by: Jayden")
 NotesTab:CreateLabel("Game: Sell Lemons 🍋")
-NotesTab:CreateLabel("Version: 1.0.2 (Fixed)")
+NotesTab:CreateLabel("Version: 1.0.3")
 NotesTab:CreateSection("🕐 Session Info")
 local timeLbl = NotesTab:CreateLabel("🕐 Loading time...")
 local function getTime()
@@ -334,7 +398,8 @@ NotesTab:CreateButton({
     Callback = function() timeLbl:Set("🕐 Loaded at: " .. getTime()) end,
 })
 
--- AUTO LOOPS (improved)
+-- ==================== AUTO LOOPS ====================
+-- Auto Click
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -350,11 +415,11 @@ task.spawn(function()
     end
 end)
 
+-- Auto Upgrade
 task.spawn(function()
     while true do
         task.wait(0.2)
         if not autoUpgradeRunning then continue end
-        
         local remotes = getAllPurchaseRemotes()
         upgradeFoundLbl:Set("🔍 Purchase Remotes Found: " .. #remotes)
         
@@ -381,17 +446,15 @@ task.spawn(function()
     end
 end)
 
+-- Auto Rebirth
 task.spawn(function()
     while true do
         task.wait(rebirthDelay)
         if not autoRebirthRunning then continue end
-        -- Reuse the rebirth logic from the button
-        -- (You can call the rebirth function if you extract it)
         local tycoon = getTycoon()
         if tycoon then
-            -- Simplified rebirth attempt
-            local rebirthFolder = tycoon:FindFirstChild("Rebirth")
             local success = false
+            local rebirthFolder = tycoon:FindFirstChild("Rebirth")
             if rebirthFolder then
                 for _, obj in ipairs(rebirthFolder:GetDescendants()) do
                     if obj:IsA("RemoteFunction") or obj:IsA("RemoteEvent") then
