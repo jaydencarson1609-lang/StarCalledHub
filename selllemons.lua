@@ -15,18 +15,23 @@ local Window = Rayfield:CreateWindow({
     KeySystem = false,
 })
 
-local FarmTab   = Window:CreateTab("🍋 Farm",    4483362458)
+local FarmTab    = Window:CreateTab("🍋 Farm",    4483362458)
 local UpgradeTab = Window:CreateTab("⬆️ Upgrade", 4483362458)
 local RebirthTab = Window:CreateTab("🔄 Rebirth", 4483362458)
-local OtherTab  = Window:CreateTab("🛠 Others",  4483362458)
-local NotesTab  = Window:CreateTab("📝 Notes",   4483362458)
+local OtherTab   = Window:CreateTab("🛠 Others",  4483362458)
+local NotesTab   = Window:CreateTab("📝 Notes",   4483362458)
 
-local selectedTycoon = 1
-local autoClickRunning = false
-local autoUpgradeRunning = false
-local autoRebirthRunning = false
-local afkRunning = false
-local clickDelay = 0.5
+local selectedTycoon       = 1
+local autoClickRunning     = false
+local autoUpgradeRunning   = false
+local autoRebirthRunning   = false
+local afkRunning           = false
+local clickDelay           = 0.5
+local upgradeDelay         = 1
+local rebirthDelay         = 5
+local clickCount           = 0
+local upgradeCount         = 0
+local rebirthCount         = 0
 
 local function getTycoon()
     return workspace:FindFirstChild("Tycoon" .. selectedTycoon)
@@ -40,23 +45,24 @@ local function getRemote(name)
     return remotes:FindFirstChild(name)
 end
 
-local function getUpgradeRemote()
+-- gets ALL Purchase remotes inside Purchases folder recursively
+local function getAllPurchaseRemotes()
     local tycoon = getTycoon()
-    if not tycoon then return nil end
+    if not tycoon then return {} end
     local purchases = tycoon:FindFirstChild("Purchases")
-    if not purchases then return nil end
-    -- search recursively for any RemoteFunction named Upgrade
+    if not purchases then return {} end
+    local found = {}
     for _, obj in ipairs(purchases:GetDescendants()) do
-        if obj.Name == "Upgrade" and obj:IsA("RemoteFunction") then
-            return obj
+        if obj.Name == "Purchase" and (obj:IsA("RemoteFunction") or obj:IsA("RemoteEvent")) then
+            table.insert(found, obj)
         end
     end
-    return nil
+    return found
 end
 
 -- FARM TAB
 FarmTab:CreateSection("🎯 Tycoon Selector")
-local tycoonLbl = FarmTab:CreateLabel("🏠 Selected: Tycoon1")
+local tycoonLbl       = FarmTab:CreateLabel("🏠 Selected: Tycoon1")
 local tycoonStatusLbl = FarmTab:CreateLabel("⚪ Status: Not checked")
 
 FarmTab:CreateSlider({
@@ -87,7 +93,7 @@ FarmTab:CreateButton({
             Rayfield:Notify({ Title = "✅ Found!", Content = "Tycoon" .. selectedTycoon .. " exists!", Duration = 3, Image = 4483362458 })
         else
             tycoonStatusLbl:Set("❌ Tycoon" .. selectedTycoon .. " not found!")
-            Rayfield:Notify({ Title = "❌ Not Found", Content = "Tycoon" .. selectedTycoon .. " doesn't exist! Try a different number.", Duration = 4, Image = 4483362458 })
+            Rayfield:Notify({ Title = "❌ Not Found", Content = "Tycoon" .. selectedTycoon .. " not found! Try another number.", Duration = 4, Image = 4483362458 })
         end
     end,
 })
@@ -95,7 +101,6 @@ FarmTab:CreateButton({
 FarmTab:CreateSection("🍋 Auto Click (Income)")
 local clickStatusLbl = FarmTab:CreateLabel("⚪ Auto Click: Idle")
 local clickCountLbl  = FarmTab:CreateLabel("🍋 Clicks: 0")
-local clickCount = 0
 
 FarmTab:CreateToggle({
     Name = "Auto Click Lemon Stand",
@@ -149,21 +154,20 @@ FarmTab:CreateButton({
 })
 
 -- UPGRADE TAB
-UpgradeTab:CreateSection("⬆️ Auto Upgrade")
+UpgradeTab:CreateSection("⬆️ Auto Buy All Upgrades")
 local upgradeStatusLbl = UpgradeTab:CreateLabel("⚪ Auto Upgrade: Idle")
-local upgradeCountLbl  = UpgradeTab:CreateLabel("⬆️ Upgrades: 0")
-local upgradeCount = 0
-local upgradeDelay = 1
+local upgradeCountLbl  = UpgradeTab:CreateLabel("⬆️ Purchases: 0")
+local upgradeFoundLbl  = UpgradeTab:CreateLabel("🔍 Purchase Remotes Found: 0")
 
 UpgradeTab:CreateToggle({
-    Name = "Auto Upgrade",
+    Name = "Auto Buy All Upgrades",
     CurrentValue = false,
     Flag = "AutoUpgrade",
     Callback = function(val)
         autoUpgradeRunning = val
         if val then
-            upgradeStatusLbl:Set("🟢 Upgrading...")
-            Rayfield:Notify({ Title = "⬆️ Auto Upgrade", Content = "Started!", Duration = 3, Image = 4483362458 })
+            upgradeStatusLbl:Set("🟢 Buying upgrades...")
+            Rayfield:Notify({ Title = "⬆️ Auto Upgrade", Content = "Started buying all upgrades!", Duration = 3, Image = 4483362458 })
         else
             upgradeStatusLbl:Set("⚪ Auto Upgrade: Idle")
             Rayfield:Notify({ Title = "⬆️ Auto Upgrade", Content = "Stopped.", Duration = 2, Image = 4483362458 })
@@ -182,17 +186,37 @@ UpgradeTab:CreateSlider({
 })
 
 UpgradeTab:CreateButton({
-    Name = "Upgrade Once",
+    Name = "Buy All Upgrades Once",
     Callback = function()
-        local remote = getUpgradeRemote()
-        if not remote then
-            Rayfield:Notify({ Title = "❌ Error", Content = "Upgrade remote not found!", Duration = 3, Image = 4483362458 })
+        local remotes = getAllPurchaseRemotes()
+        if #remotes == 0 then
+            Rayfield:Notify({ Title = "❌ Error", Content = "No Purchase remotes found!", Duration = 3, Image = 4483362458 })
             return
         end
-        pcall(function() remote:InvokeServer(1) end)
-        upgradeCount += 1
-        upgradeCountLbl:Set("⬆️ Upgrades: " .. upgradeCount)
-        Rayfield:Notify({ Title = "✅ Upgraded", Content = "Upgrade fired!", Duration = 2, Image = 4483362458 })
+        local bought = 0
+        for _, remote in ipairs(remotes) do
+            pcall(function()
+                if remote:IsA("RemoteFunction") then
+                    remote:InvokeServer(false)
+                elseif remote:IsA("RemoteEvent") then
+                    remote:FireServer(false)
+                end
+            end)
+            bought += 1
+            task.wait(0.1)
+        end
+        upgradeCount += bought
+        upgradeCountLbl:Set("⬆️ Purchases: " .. upgradeCount)
+        Rayfield:Notify({ Title = "✅ Done", Content = "Bought " .. bought .. " upgrades!", Duration = 3, Image = 4483362458 })
+    end,
+})
+
+UpgradeTab:CreateButton({
+    Name = "🔍 Scan Purchase Remotes",
+    Callback = function()
+        local remotes = getAllPurchaseRemotes()
+        upgradeFoundLbl:Set("🔍 Purchase Remotes Found: " .. #remotes)
+        Rayfield:Notify({ Title = "🔍 Scan", Content = "Found " .. #remotes .. " purchase remotes!", Duration = 3, Image = 4483362458 })
     end,
 })
 
@@ -200,8 +224,6 @@ UpgradeTab:CreateButton({
 RebirthTab:CreateSection("🔄 Auto Rebirth")
 local rebirthStatusLbl = RebirthTab:CreateLabel("⚪ Auto Rebirth: Idle")
 local rebirthCountLbl  = RebirthTab:CreateLabel("🔄 Rebirths: 0")
-local rebirthCount = 0
-local rebirthDelay = 5
 
 RebirthTab:CreateToggle({
     Name = "Auto Rebirth",
@@ -232,21 +254,48 @@ RebirthTab:CreateSlider({
 RebirthTab:CreateButton({
     Name = "Rebirth Once",
     Callback = function()
-        local remote = getRemote("Rebirthed")
-        if not remote then
-            Rayfield:Notify({ Title = "❌ Error", Content = "Rebirth remote not found!", Duration = 3, Image = 4483362458 })
+        local tycoon = getTycoon()
+        if not tycoon then
+            Rayfield:Notify({ Title = "❌ Error", Content = "Tycoon" .. selectedTycoon .. " not found!", Duration = 3, Image = 4483362458 })
             return
         end
-        pcall(function()
-            if remote:IsA("RemoteEvent") then
-                remote:FireServer()
-            elseif remote:IsA("RemoteFunction") then
-                remote:InvokeServer()
+        local rebirth = tycoon:FindFirstChild("Rebirth")
+        if not rebirth then
+            Rayfield:Notify({ Title = "❌ Error", Content = "Rebirth folder not found!", Duration = 3, Image = 4483362458 })
+            return
+        end
+        -- try to find a Purchase or remote inside Rebirth
+        for _, obj in ipairs(rebirth:GetDescendants()) do
+            if obj:IsA("RemoteFunction") or obj:IsA("RemoteEvent") then
+                pcall(function()
+                    if obj:IsA("RemoteFunction") then
+                        obj:InvokeServer(false)
+                    else
+                        obj:FireServer()
+                    end
+                end)
+                rebirthCount += 1
+                rebirthCountLbl:Set("🔄 Rebirths: " .. rebirthCount)
+                Rayfield:Notify({ Title = "✅ Rebirth", Content = "Rebirth fired!", Duration = 2, Image = 4483362458 })
+                return
             end
-        end)
-        rebirthCount += 1
-        rebirthCountLbl:Set("🔄 Rebirths: " .. rebirthCount)
-        Rayfield:Notify({ Title = "✅ Rebirth", Content = "Rebirth fired!", Duration = 2, Image = 4483362458 })
+        end
+        -- fallback to Remotes
+        local remote = getRemote("Rebirthed")
+        if remote then
+            pcall(function()
+                if remote:IsA("RemoteFunction") then
+                    remote:InvokeServer()
+                else
+                    remote:FireServer()
+                end
+            end)
+            rebirthCount += 1
+            rebirthCountLbl:Set("🔄 Rebirths: " .. rebirthCount)
+            Rayfield:Notify({ Title = "✅ Rebirth", Content = "Rebirth fired!", Duration = 2, Image = 4483362458 })
+        else
+            Rayfield:Notify({ Title = "❌ Error", Content = "No rebirth remote found!", Duration = 3, Image = 4483362458 })
+        end
     end,
 })
 
@@ -286,7 +335,7 @@ NotesTab:CreateSection("📝 About")
 NotesTab:CreateLabel("★ StarCalled Hub")
 NotesTab:CreateLabel("Made by: Jayden")
 NotesTab:CreateLabel("Game: Sell Lemons 🍋")
-NotesTab:CreateLabel("Version: 1.0.0")
+NotesTab:CreateLabel("Version: 1.0.1")
 NotesTab:CreateSection("🕐 Session Info")
 local timeLbl = NotesTab:CreateLabel("🕐 Loading time...")
 
@@ -331,16 +380,26 @@ task.spawn(function()
     while true do
         task.wait(0.1)
         if not autoUpgradeRunning then task.wait(0.3) continue end
-        local remote = getUpgradeRemote()
-        if not remote then
-            upgradeStatusLbl:Set("❌ Upgrade remote not found!")
+        local remotes = getAllPurchaseRemotes()
+        upgradeFoundLbl:Set("🔍 Purchase Remotes Found: " .. #remotes)
+        if #remotes == 0 then
+            upgradeStatusLbl:Set("❌ No purchase remotes found!")
             task.wait(2) continue
         end
-        pcall(function() remote:InvokeServer(1) end)
-        upgradeCount += 1
-        upgradeCountLbl:Set("⬆️ Upgrades: " .. upgradeCount)
-        upgradeStatusLbl:Set("🟢 Upgraded " .. upgradeCount .. "x")
-        task.wait(upgradeDelay)
+        for _, remote in ipairs(remotes) do
+            if not autoUpgradeRunning then break end
+            pcall(function()
+                if remote:IsA("RemoteFunction") then
+                    remote:InvokeServer(false)
+                elseif remote:IsA("RemoteEvent") then
+                    remote:FireServer(false)
+                end
+            end)
+            upgradeCount += 1
+            upgradeCountLbl:Set("⬆️ Purchases: " .. upgradeCount)
+            upgradeStatusLbl:Set("🟢 Buying... " .. upgradeCount .. " total")
+            task.wait(upgradeDelay)
+        end
     end
 end)
 
@@ -349,21 +408,43 @@ task.spawn(function()
     while true do
         task.wait(0.1)
         if not autoRebirthRunning then task.wait(0.3) continue end
-        local remote = getRemote("Rebirthed")
-        if not remote then
-            rebirthStatusLbl:Set("❌ Rebirth remote not found!")
+        local tycoon = getTycoon()
+        if not tycoon then
+            rebirthStatusLbl:Set("❌ Tycoon not found!")
             task.wait(2) continue
         end
-        pcall(function()
-            if remote:IsA("RemoteEvent") then
-                remote:FireServer()
-            elseif remote:IsA("RemoteFunction") then
-                remote:InvokeServer()
+        local rebirth = tycoon:FindFirstChild("Rebirth")
+        if rebirth then
+            for _, obj in ipairs(rebirth:GetDescendants()) do
+                if obj:IsA("RemoteFunction") or obj:IsA("RemoteEvent") then
+                    pcall(function()
+                        if obj:IsA("RemoteFunction") then
+                            obj:InvokeServer(false)
+                        else
+                            obj:FireServer()
+                        end
+                    end)
+                    rebirthCount += 1
+                    rebirthCountLbl:Set("🔄 Rebirths: " .. rebirthCount)
+                    rebirthStatusLbl:Set("🟢 Rebirths: " .. rebirthCount)
+                    break
+                end
             end
-        end)
-        rebirthCount += 1
-        rebirthCountLbl:Set("🔄 Rebirths: " .. rebirthCount)
-        rebirthStatusLbl:Set("🟢 Rebirths: " .. rebirthCount)
+        else
+            local remote = getRemote("Rebirthed")
+            if remote then
+                pcall(function()
+                    if remote:IsA("RemoteFunction") then
+                        remote:InvokeServer()
+                    else
+                        remote:FireServer()
+                    end
+                end)
+                rebirthCount += 1
+                rebirthCountLbl:Set("🔄 Rebirths: " .. rebirthCount)
+                rebirthStatusLbl:Set("🟢 Rebirths: " .. rebirthCount)
+            end
+        end
         task.wait(rebirthDelay)
     end
 end)
