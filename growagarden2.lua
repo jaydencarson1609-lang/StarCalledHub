@@ -1,4 +1,4 @@
--- 🌱 Grow a Garden 2 | StarCalled Hub - FINAL TRY (HarvestPrompt Focus)
+-- 🌱 Grow a Garden 2 | StarCalled Hub - DIAGNOSTIC BUILD
 
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
@@ -13,38 +13,116 @@ local Window = Rayfield:CreateWindow({
 
 local MainTab = Window:CreateTab("🌱 Main", 4483362458)
 local ShopTab = Window:CreateTab("🛒 Shop", 4483362458)
+local DebugTab = Window:CreateTab("🐛 Debug", 4483362458)
 
 local autoBuyRunning = false
 local autoPlantRunning = false
 local autoHarvestRunning = false
+local debugMode = true
 local selectedSeed = "Carrot"
-
-local Event = game:GetService("ReplicatedStorage"):WaitForChild("SharedModules", 5):WaitForChild("Packet", 5):WaitForChild("RemoteEvent", 5)
 
 local seedList = {"Carrot", "Strawberry", "Blueberry", "Tulip", "Tomato", "Apple", "Bamboo", "Mushroom", "Pumpkin", "Rose", "Sunflower"}
 
--- Get Player's Plot
+local function dbg(...)
+    if debugMode then
+        print("[Hub]", ...)
+    end
+end
+
+local function safeCall(label, fn)
+    local ok, err = pcall(fn)
+    if not ok then
+        dbg("ERROR in " .. label .. ":", err)
+    end
+    return ok
+end
+
+-- Resolve the remote with explicit failure reporting instead of silent nil
+local Event
+do
+    local rs = game:GetService("ReplicatedStorage")
+    local sharedModules = rs:WaitForChild("SharedModules", 5)
+    if not sharedModules then
+        Rayfield:Notify({Title = "❌ Remote Error", Content = "SharedModules not found", Duration = 6})
+    else
+        local packet = sharedModules:WaitForChild("Packet", 5)
+        Event = packet and packet:WaitForChild("RemoteEvent", 5)
+    end
+    if not Event then
+        Rayfield:Notify({Title = "❌ Remote Error", Content = "RemoteEvent path is wrong — check Debug tab", Duration = 8})
+    end
+end
+
+-- Get Player's Plot, with diagnostics if nothing matches
 local function getPlayerPlot()
     for _, v in ipairs(workspace:GetChildren()) do
-        if v.Name:match("^Plot%d+$") and v:FindFirstChild("Owner") and v.Owner.Value == player then
-            return v
+        if v.Name:match("^Plot%d+$") then
+            local owner = v:FindFirstChild("Owner")
+            if owner and owner.Value == player then
+                return v
+            end
         end
     end
     return nil
 end
 
--- Equip Tool
+-- Equip Tool: returns the actual tool instance, not just true/false
 local function equipTool(name)
     local char = player.Character
-    if not char or not char:FindFirstChild("Humanoid") then return false end
-    local tool = char:FindFirstChild(name) or player.Backpack:FindFirstChild(name)
-    if tool then
-        char.Humanoid:EquipTool(tool)
-        task.wait(0.2)
-        return true
+    if not char or not char:FindFirstChild("Humanoid") then
+        return nil
     end
-    return false
+    local tool = char:FindFirstChild(name) or (player.Backpack and player.Backpack:FindFirstChild(name))
+    if not tool then
+        dbg("equipTool: no tool named '" .. name .. "' in Character or Backpack")
+        return nil
+    end
+    char.Humanoid:EquipTool(tool)
+    local deadline = os.clock() + 1
+    repeat
+        task.wait(0.05)
+    until char:FindFirstChildOfClass("Tool") or os.clock() > deadline
+    return char:FindFirstChildOfClass("Tool")
 end
+
+-- ==================== DEBUG TAB ====================
+DebugTab:CreateToggle({
+    Name = "Verbose Logging",
+    CurrentValue = true,
+    Callback = function(val) debugMode = val end,
+})
+
+DebugTab:CreateButton({
+    Name = "Dump Backpack Tool Names",
+    Callback = function()
+        if not player.Backpack then return end
+        for _, tool in ipairs(player.Backpack:GetChildren()) do
+            print("[Backpack]", tool.Name, tool.ClassName)
+        end
+        for _, tool in ipairs(player.Character and player.Character:GetChildren() or {}) do
+            if tool:IsA("Tool") then
+                print("[Character]", tool.Name, tool.ClassName)
+            end
+        end
+    end,
+})
+
+DebugTab:CreateButton({
+    Name = "Dump Plot + Prompts",
+    Callback = function()
+        local plot = getPlayerPlot()
+        if not plot then
+            print("[Plot] getPlayerPlot() returned nil — check Owner value / Plot naming pattern")
+            return
+        end
+        print("[Plot] Found:", plot:GetFullName())
+        for _, inst in ipairs(plot:GetDescendants()) do
+            if inst:IsA("ProximityPrompt") then
+                print("[Prompt]", inst:GetFullName(), "| Name:", inst.Name, "| ActionText:", inst.ActionText, "| Enabled:", inst.Enabled)
+            end
+        end
+    end,
+})
 
 -- ==================== SHOP ====================
 ShopTab:CreateSection("🛒 Auto Buy")
@@ -74,16 +152,16 @@ MainTab:CreateToggle({
 })
 
 MainTab:CreateToggle({
-    Name = "Auto Harvest (HarvestPrompt)",
+    Name = "Auto Harvest",
     CurrentValue = false,
     Callback = function(val) autoHarvestRunning = val end,
 })
 
--- Auto Buy (Works for you)
+-- Auto Buy
 task.spawn(function()
     while true do
-        if autoBuyRunning then
-            pcall(function()
+        if autoBuyRunning and Event then
+            safeCall("AutoBuy", function()
                 Event:FireServer(buffer.fromstring("j\x00\x06" .. selectedSeed))
             end)
         end
@@ -94,14 +172,15 @@ end)
 -- Auto Plant
 task.spawn(function()
     while true do
-        if autoPlantRunning then
-            pcall(function()
-                if equipTool(selectedSeed) then
-                    local tool = player.Character:FindFirstChildOfClass("Tool")
-                    if tool then
-                        local buf = buffer.fromstring("\x05\x00\x9C\b\xD4C\xFEZ\x0EC\xD1\xE6\x13\xC3\x06" .. selectedSeed)
-                        Event:FireServer(buf, {tool})
-                    end
+        if autoPlantRunning and Event then
+            safeCall("AutoPlant", function()
+                local tool = equipTool(selectedSeed)
+                if tool then
+                    local buf = buffer.fromstring("\x05\x00\x9C\b\xD4C\xFEZ\x0EC\xD1\xE6\x13\xC3\x06" .. selectedSeed)
+                    Event:FireServer(buf, {tool})
+                    dbg("Planted", selectedSeed)
+                else
+                    dbg("AutoPlant: no tool resolved for", selectedSeed)
                 end
             end)
         end
@@ -109,25 +188,30 @@ task.spawn(function()
     end
 end)
 
--- Auto Harvest - Focused on HarvestPrompt
+-- Auto Harvest — matches by ActionText too, not just instance Name
 task.spawn(function()
     while true do
         if autoHarvestRunning then
-            pcall(function()
+            safeCall("AutoHarvest", function()
                 local plot = getPlayerPlot()
-                if plot then
-                    local harvested = 0
-                    for _, plant in ipairs(plot:GetDescendants()) do
-                        local prompt = plant:FindFirstChild("HarvestPrompt") or plant:FindFirstChild("HarvestPromptLabel")
-                        if prompt and prompt:IsA("ProximityPrompt") and prompt.Enabled then
-                            fireproximityprompt(prompt)
+                if not plot then
+                    dbg("AutoHarvest: no plot found for player")
+                    return
+                end
+                local harvested = 0
+                for _, inst in ipairs(plot:GetDescendants()) do
+                    if inst:IsA("ProximityPrompt") and inst.Enabled then
+                        local nameMatch = inst.Name == "HarvestPrompt" or inst.Name == "HarvestPromptLabel"
+                        local textMatch = inst.ActionText and inst.ActionText:lower():find("harvest")
+                        if nameMatch or textMatch then
+                            fireproximityprompt(inst)
                             harvested += 1
                             task.wait(0.05)
                         end
                     end
-                    if harvested > 0 then
-                        print("Harvested " .. harvested .. " plants")
-                    end
+                end
+                if harvested > 0 then
+                    dbg("Harvested " .. harvested .. " plants")
                 end
             end)
         end
@@ -135,4 +219,4 @@ task.spawn(function()
     end
 end)
 
-Rayfield:Notify({Title = "🌱 Loaded", Content = "Auto Buy works\nTry Auto Harvest first (after crops grow)", Duration = 8})
+Rayfield:Notify({Title = "🌱 Loaded", Content = "Open the Debug tab if Plant/Harvest still fail", Duration = 8})
