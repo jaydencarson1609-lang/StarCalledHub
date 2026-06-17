@@ -1,8 +1,7 @@
--- 🌱 Grow a Garden 2 | StarCalled Hub - FIXED Harvest + Plant
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local player = Players.LocalPlayer
+-- 🌱 Grow a Garden 2 | StarCalled Hub - FINAL TRY (HarvestPrompt Focus)
 
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
 local Window = Rayfield:CreateWindow({
@@ -10,32 +9,25 @@ local Window = Rayfield:CreateWindow({
     LoadingTitle = "Grow a Garden 2",
     LoadingSubtitle = "Auto Buy • Plant • Harvest",
     ConfigurationSaving = { Enabled = false },
-    Discord = { Enabled = false },
-    KeySystem = false,
 })
 
 local MainTab = Window:CreateTab("🌱 Main", 4483362458)
 local ShopTab = Window:CreateTab("🛒 Shop", 4483362458)
-local OtherTab = Window:CreateTab("🛠 Others", 4483362458)
 
 local autoBuyRunning = false
 local autoPlantRunning = false
 local autoHarvestRunning = false
 local selectedSeed = "Carrot"
 
-local buyDelay = 0.3
-local plantDelay = 0.8
-local harvestDelay = 0.6
-
-local Event = ReplicatedStorage:WaitForChild("SharedModules", 5):WaitForChild("Packet", 5):WaitForChild("RemoteEvent", 5)
+local Event = game:GetService("ReplicatedStorage"):WaitForChild("SharedModules", 5):WaitForChild("Packet", 5):WaitForChild("RemoteEvent", 5)
 
 local seedList = {"Carrot", "Strawberry", "Blueberry", "Tulip", "Tomato", "Apple", "Bamboo", "Mushroom", "Pumpkin", "Rose", "Sunflower"}
 
--- Find Player's Plot
+-- Get Player's Plot
 local function getPlayerPlot()
-    for _, plot in ipairs(workspace:GetChildren()) do
-        if plot.Name:match("^Plot%d+$") and plot:FindFirstChild("Owner") and plot.Owner.Value == player then
-            return plot
+    for _, v in ipairs(workspace:GetChildren()) do
+        if v.Name:match("^Plot%d+$") and v:FindFirstChild("Owner") and v.Owner.Value == player then
+            return v
         end
     end
     return nil
@@ -44,12 +36,14 @@ end
 -- Equip Tool
 local function equipTool(name)
     local char = player.Character
-    if not char or not char:FindFirstChild("Humanoid") then return end
+    if not char or not char:FindFirstChild("Humanoid") then return false end
     local tool = char:FindFirstChild(name) or player.Backpack:FindFirstChild(name)
     if tool then
         char.Humanoid:EquipTool(tool)
         task.wait(0.2)
+        return true
     end
+    return false
 end
 
 -- ==================== SHOP ====================
@@ -66,7 +60,7 @@ ShopTab:CreateToggle({
     CurrentValue = false,
     Callback = function(val)
         autoBuyRunning = val
-        Rayfield:Notify({Title = "🛒 Auto Buy", Content = val and "ON - "..selectedSeed or "OFF", Duration = 3})
+        Rayfield:Notify({Title = "🛒 Auto Buy", Content = val and "ON" or "OFF", Duration = 3})
     end,
 })
 
@@ -74,18 +68,18 @@ ShopTab:CreateToggle({
 MainTab:CreateSection("🌱 Auto Farm")
 
 MainTab:CreateToggle({
-    Name = "Auto Plant (Equip Seed)",
+    Name = "Auto Plant",
     CurrentValue = false,
     Callback = function(val) autoPlantRunning = val end,
 })
 
 MainTab:CreateToggle({
-    Name = "Auto Harvest (New Method)",
+    Name = "Auto Harvest (HarvestPrompt)",
     CurrentValue = false,
     Callback = function(val) autoHarvestRunning = val end,
 })
 
--- Auto Buy
+-- Auto Buy (Works for you)
 task.spawn(function()
     while true do
         if autoBuyRunning then
@@ -93,7 +87,7 @@ task.spawn(function()
                 Event:FireServer(buffer.fromstring("j\x00\x06" .. selectedSeed))
             end)
         end
-        task.wait(buyDelay)
+        task.wait(0.3)
     end
 end)
 
@@ -102,46 +96,43 @@ task.spawn(function()
     while true do
         if autoPlantRunning then
             pcall(function()
-                equipTool(selectedSeed)
-                local tool = player.Character and player.Character:FindFirstChildOfClass("Tool")
-                if tool then
-                    local buf = buffer.fromstring("\x05\x00\x9C\b\xD4C\xFEZ\x0EC\xD1\xE6\x13\xC3\x06" .. selectedSeed)
-                    Event:FireServer(buf, {tool})
+                if equipTool(selectedSeed) then
+                    local tool = player.Character:FindFirstChildOfClass("Tool")
+                    if tool then
+                        local buf = buffer.fromstring("\x05\x00\x9C\b\xD4C\xFEZ\x0EC\xD1\xE6\x13\xC3\x06" .. selectedSeed)
+                        Event:FireServer(buf, {tool})
+                    end
                 end
             end)
         end
-        task.wait(plantDelay)
+        task.wait(0.8)
     end
 end)
 
--- **NEW & IMPROVED Auto Harvest** (uses HarvestPrompt from your screenshot)
+-- Auto Harvest - Focused on HarvestPrompt
 task.spawn(function()
     while true do
         if autoHarvestRunning then
             pcall(function()
                 local plot = getPlayerPlot()
                 if plot then
+                    local harvested = 0
                     for _, plant in ipairs(plot:GetDescendants()) do
-                        if plant:FindFirstChild("HarvestPrompt") then
-                            local prompt = plant.HarvestPrompt
-                            if prompt and prompt.Enabled then
-                                -- Fire the ProximityPrompt
-                                pcall(function()
-                                    fireproximityprompt(prompt, 1)
-                                end)
-                            end
+                        local prompt = plant:FindFirstChild("HarvestPrompt") or plant:FindFirstChild("HarvestPromptLabel")
+                        if prompt and prompt:IsA("ProximityPrompt") and prompt.Enabled then
+                            fireproximityprompt(prompt)
+                            harvested += 1
+                            task.wait(0.05)
                         end
+                    end
+                    if harvested > 0 then
+                        print("Harvested " .. harvested .. " plants")
                     end
                 end
             end)
         end
-        task.wait(harvestDelay)
+        task.wait(0.6)
     end
 end)
 
-OtherTab:CreateButton({
-    Name = "Load Infinite Yield",
-    Callback = function() loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))() end,
-})
-
-Rayfield:Notify({Title = "🌱 Updated!", Content = "New Harvest using HarvestPrompt\nBuy seeds → Equip seed → Turn on Auto Plant & Harvest", Duration = 8})
+Rayfield:Notify({Title = "🌱 Loaded", Content = "Auto Buy works\nTry Auto Harvest first (after crops grow)", Duration = 8})
