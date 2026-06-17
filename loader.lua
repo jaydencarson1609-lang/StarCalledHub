@@ -1,5 +1,5 @@
--- StarCalled Hub | Loader v2
--- Run this in your executor
+-- ★ StarCalled Hub | Loader v2
+-- Push to: StarCalledHub/loader.lua
 
 local SUPPORTED_GAMES = {
     {
@@ -55,9 +55,9 @@ for _, gameEntry in ipairs(SUPPORTED_GAMES) do
                 Content = "Loading " .. gameEntry.name .. "...",
                 Duration = 3
             })
-            task.wait(1.5)   -- let notify render before destroy
+            task.wait(1.5)
             Rayfield:Destroy()
-            task.wait(0.3)   -- gap before child script inits its own Rayfield
+            task.wait(0.3)
             gameEntry.loader()
         end,
     })
@@ -65,4 +65,4 @@ end
 
 GameTab:CreateSection("📝 About")
 GameTab:CreateLabel("★ StarCalled Hub — Made by Jayden")
-GameTab:CreateLabel("Loaded Games: GAG2 🌱 | Baby Pursuers 👶 | Lemons 🍋 | Gambling 🎰")
+GameTab:CreateLabel("GAG2 🌱 | Baby Pursuers 👶 | Lemons 🍋 | Gambling 🎰")
