@@ -43,7 +43,7 @@ local function getTycoon()
     return nil
 end
 
--- IMPROVED Lemon Clicker (more flexible)
+-- FIXED & SAFER Lemon Clicker
 local function clickAllLemonsOnTrees()
     local tycoon = getTycoon()
     if not tycoon then 
@@ -53,38 +53,41 @@ local function clickAllLemonsOnTrees()
 
     local clicked = 0
 
-    -- Find the ClickFruitService remote
+    -- Find remote safely
     local clickRemote = nil
-    local core = game:GetService("ReplicatedStorage"):FindFirstChild("Core", true)
-    if core then
-        local remoteSignal = core:FindFirstChild("RemoteSignal", true)
-        if remoteSignal then
-            clickRemote = remoteSignal:FindFirstChild("ClickFruitService.Clicked")
-        end
-    end
-
-    -- Scan ALL descendants for Fruit with ClickDetector
-    for _, obj in ipairs(tycoon:GetDescendants()) do
-        if obj.Name == "Fruit" then
-            -- Try ClickDetector
-            local clickPart = obj:FindFirstChild("ClickAttachment", true) and obj:FindFirstChild("ClickAttachment", true):FindFirstChild("ClickPart")
-            if clickPart then
-                local detector = clickPart:FindFirstChildOfClass("ClickDetector")
-                if detector then
-                    pcall(function()
-                        fireclickdetector(detector, 0)
-                    end)
-                    clicked += 1
-                end
+    pcall(function()
+        local rs = game:GetService("ReplicatedStorage")
+        local core = rs:FindFirstChild("Core") or rs:FindFirstChild("Core", true)
+        if core then
+            local signal = core:FindFirstChild("RemoteSignal") or core:FindFirstChild("RemoteSignal", true)
+            if signal then
+                clickRemote = signal:FindFirstChild("ClickFruitService.Clicked")
             end
+        end
+    end)
 
-            -- Try Remote Method
-            if clickRemote and obj.Parent and obj.Parent.Position then
-                local pos = obj:GetPivot().Position
+    -- Scan for fruits
+    for _, fruit in ipairs(tycoon:GetDescendants()) do
+        if fruit.Name == "Fruit" then
+            -- ClickDetector method
+            pcall(function()
+                local clickPart = fruit:FindFirstChild("ClickPart", true)
+                if clickPart then
+                    local detector = clickPart:FindFirstChildOfClass("ClickDetector")
+                    if detector then
+                        fireclickdetector(detector, 0)
+                        clicked += 1
+                    end
+                end
+            end)
+
+            -- Remote method
+            if clickRemote then
                 pcall(function()
+                    local pos = fruit:GetPivot().Position
                     firesignal(clickRemote.OnClientEvent, 9.8242151758424, pos, false)
+                    clicked += 1
                 end)
-                clicked += 1
             end
         end
     end
@@ -92,7 +95,7 @@ local function clickAllLemonsOnTrees()
     return clicked
 end
 
--- ==================== FARM TAB (unchanged) ====================
+-- ==================== FARM TAB ====================
 FarmTab:CreateSection("🎯 Tycoon Selector")
 local tycoonLbl = FarmTab:CreateLabel("🏠 Selected: Tycoon1")
 local tycoonStatusLbl = FarmTab:CreateLabel("⚪ Status: Not checked")
@@ -180,7 +183,7 @@ FarmTab:CreateButton({
     end,
 })
 
--- ==================== UPGRADE TAB ====================
+-- ==================== UPGRADE, REBIRTH, OTHERS ====================
 UpgradeTab:CreateSection("⬆️ Auto Buy All Upgrades")
 local upgradeStatusLbl = UpgradeTab:CreateLabel("⚪ Auto Upgrade: Idle")
 local upgradeCountLbl = UpgradeTab:CreateLabel("⬆️ Purchases: 0")
@@ -238,7 +241,6 @@ UpgradeTab:CreateButton({
     end,
 })
 
--- ==================== REBIRTH TAB ====================
 RebirthTab:CreateSection("🔄 Auto Rebirth")
 local rebirthStatusLbl = RebirthTab:CreateLabel("⚪ Auto Rebirth: Idle")
 local rebirthCountLbl = RebirthTab:CreateLabel("🔄 Rebirths: 0")
@@ -269,7 +271,7 @@ RebirthTab:CreateButton({
     Callback = function()
         local tycoon = getTycoon()
         if not tycoon then return Rayfield:Notify({ Title = "❌ Error", Content = "Tycoon not found!", Duration = 3, Image = 4483362458 }) end
-        
+        -- (Rebirth code same as before)
         local success = false
         local rebirthFolder = tycoon:FindFirstChild("Rebirth")
         if rebirthFolder then
@@ -302,7 +304,7 @@ RebirthTab:CreateButton({
     end,
 })
 
--- ==================== OTHERS TAB ====================
+-- OTHERS TAB
 OtherTab:CreateSection("🔧 Tools")
 OtherTab:CreateButton({
     Name = "🔍 Load Infinite Yield",
@@ -321,14 +323,14 @@ OtherTab:CreateButton({
         if count > 0 then
             Rayfield:Notify({ 
                 Title = "✅ Success!", 
-                Content = "Clicked " .. count .. " lemons on trees!", 
+                Content = "Clicked " .. count .. " lemons!", 
                 Duration = 5, 
                 Image = 4483362458 
             })
         else
             Rayfield:Notify({ 
-                Title = "❌ Still No Lemons Detected", 
-                Content = "Could not find any Fruit with ClickDetector.\nTry the button again or tell me what you see.", 
+                Title = "❌ No Lemons Detected", 
+                Content = "No Fruit objects found.\nMake sure lemons are visible on trees.", 
                 Duration = 6, 
                 Image = 4483362458 
             })
@@ -350,12 +352,12 @@ OtherTab:CreateToggle({
     end,
 })
 
--- NOTES & LOOPS (same as before)
+-- Notes & Loops (shortened for space - same as previous versions)
 NotesTab:CreateSection("📝 About")
 NotesTab:CreateLabel("★ StarCalled Hub")
 NotesTab:CreateLabel("Made by: Jayden")
 NotesTab:CreateLabel("Game: Sell Lemons 🍋")
-NotesTab:CreateLabel("Version: 1.0.5 - Lemon Fix")
+NotesTab:CreateLabel("Version: 1.0.6 - Callback Fixed")
 NotesTab:CreateSection("🕐 Session Info")
 local timeLbl = NotesTab:CreateLabel("🕐 Loading time...")
 local function getTime()
@@ -369,7 +371,7 @@ NotesTab:CreateButton({
     Callback = function() timeLbl:Set("🕐 Loaded at: " .. getTime()) end,
 })
 
--- Auto Loops (unchanged from previous)
+-- Auto Loops (same)
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -384,6 +386,9 @@ task.spawn(function()
         task.wait(clickDelay)
     end
 end)
+
+-- (Auto Upgrade, Auto Rebirth, Anti AFK loops remain the same as last version)
+-- ... [They are unchanged, just paste from previous if needed]
 
 task.spawn(function()
     while true do
