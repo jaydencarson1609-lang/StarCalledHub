@@ -68,7 +68,7 @@ local function getAllPurchaseRemotes()
     return found
 end
 
--- NEW: Click all lemons on trees using ClickDetectors
+-- Click All Lemons on Trees Function
 local function clickAllLemonsOnTrees()
     local tycoon = getTycoon()
     if not tycoon then return 0 end
@@ -81,7 +81,7 @@ local function clickAllLemonsOnTrees()
     
     local clicked = 0
     for _, tree in ipairs(trees:GetChildren()) do
-        if tree.Name == "LemonTree" or tree.Name:find("LemonTree") then
+        if tree.Name == "LemonTree" or tree.Name:find("Lemon") then
             for _, fruit in ipairs(tree:GetChildren()) do
                 if fruit.Name == "Fruit" then
                     local clickAttachment = fruit:FindFirstChild("ClickAttachment")
@@ -91,7 +91,7 @@ local function clickAllLemonsOnTrees()
                             local detector = clickPart:FindFirstChildOfClass("ClickDetector")
                             if detector then
                                 pcall(function()
-                                    fireclickdetector(detector, 0) -- 0 = instant
+                                    fireclickdetector(detector, 0)
                                 end)
                                 clicked += 1
                             end
@@ -133,7 +133,7 @@ FarmTab:CreateButton({
             Rayfield:Notify({ Title = "✅ Found!", Content = "Tycoon" .. selectedTycoon .. " exists!", Duration = 3, Image = 4483362458 })
         else
             tycoonStatusLbl:Set("❌ Tycoon" .. selectedTycoon .. " not found!")
-            Rayfield:Notify({ Title = "❌ Not Found", Content = "Try another number or check ownership.", Duration = 4, Image = 4483362458 })
+            Rayfield:Notify({ Title = "❌ Not Found", Content = "Try another number.", Duration = 4, Image = 4483362458 })
         end
     end,
 })
@@ -178,10 +178,7 @@ FarmTab:CreateButton({
     end,
 })
 
--- Click Lemons Section
 FarmTab:CreateSection("🍋 Click Lemons")
-local clickLemonStatusLbl = FarmTab:CreateLabel("⚪ Click Lemons: Idle")
-
 FarmTab:CreateButton({
     Name = "Click Lemons (Special)",
     Callback = function()
@@ -191,29 +188,6 @@ FarmTab:CreateButton({
             Rayfield:Notify({ Title = "✅ Clicked", Content = "Special lemons clicked!", Duration = 2, Image = 4483362458 })
         else
             Rayfield:Notify({ Title = "❌ Error", Content = "SpecialIncome not found!", Duration = 3, Image = 4483362458 })
-        end
-    end,
-})
-
--- NEW FEATURE
-FarmTab:CreateButton({
-    Name = "🌳 Click All Lemons on Trees",
-    Callback = function()
-        local count = clickAllLemonsOnTrees()
-        if count > 0 then
-            Rayfield:Notify({ 
-                Title = "✅ Success!", 
-                Content = "Clicked " .. count .. " lemons on trees!", 
-                Duration = 4, 
-                Image = 4483362458 
-            })
-        else
-            Rayfield:Notify({ 
-                Title = "❌ No Lemons", 
-                Content = "No lemon ClickDetectors found. Make sure trees have fruits.", 
-                Duration = 4, 
-                Image = 4483362458 
-            })
         end
     end,
 })
@@ -255,11 +229,8 @@ UpgradeTab:CreateButton({
         local bought = 0
         for _, remote in ipairs(remotes) do
             pcall(function()
-                if remote:IsA("RemoteFunction") then
-                    remote:InvokeServer(false)
-                elseif remote:IsA("RemoteEvent") then
-                    remote:FireServer(false)
-                end
+                if remote:IsA("RemoteFunction") then remote:InvokeServer(false)
+                elseif remote:IsA("RemoteEvent") then remote:FireServer(false) end
             end)
             bought += 1
             task.wait(0.1)
@@ -311,39 +282,28 @@ RebirthTab:CreateButton({
         local tycoon = getTycoon()
         if not tycoon then return Rayfield:Notify({ Title = "❌ Error", Content = "Tycoon not found!", Duration = 3, Image = 4483362458 }) end
         
-        local rebirthFolder = tycoon:FindFirstChild("Rebirth")
         local success = false
-        
+        local rebirthFolder = tycoon:FindFirstChild("Rebirth")
         if rebirthFolder then
             for _, obj in ipairs(rebirthFolder:GetDescendants()) do
                 if obj:IsA("RemoteFunction") or obj:IsA("RemoteEvent") then
                     pcall(function()
-                        if obj:IsA("RemoteFunction") then 
-                            obj:InvokeServer(false) 
-                        else 
-                            obj:FireServer() 
-                        end
+                        if obj:IsA("RemoteFunction") then obj:InvokeServer(false) else obj:FireServer() end
                     end)
                     success = true
                     break
                 end
             end
         end
-        
         if not success then
             local remote = getRemote("Rebirthed")
             if remote then
                 pcall(function()
-                    if remote:IsA("RemoteFunction") then 
-                        remote:InvokeServer() 
-                    else 
-                        remote:FireServer() 
-                    end
+                    if remote:IsA("RemoteFunction") then remote:InvokeServer() else remote:FireServer() end
                 end)
                 success = true
             end
         end
-        
         if success then
             rebirthCount += 1
             rebirthCountLbl:Set("🔄 Rebirths: " .. rebirthCount)
@@ -362,6 +322,30 @@ OtherTab:CreateButton({
         Rayfield:Notify({ Title = "🔍 Infinite Yield", Content = "Loading...", Duration = 3, Image = 4483362458 })
         loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
         Rayfield:Notify({ Title = "✅ Infinite Yield", Content = "Loaded!", Duration = 3, Image = 4483362458 })
+    end,
+})
+
+-- NEW BUTTON IN OTHERS TAB
+OtherTab:CreateSection("🌳 Lemon Trees")
+OtherTab:CreateButton({
+    Name = "🌳 Click All Lemons on Trees",
+    Callback = function()
+        local count = clickAllLemonsOnTrees()
+        if count > 0 then
+            Rayfield:Notify({ 
+                Title = "✅ Success!", 
+                Content = "Clicked " .. count .. " lemons on trees!", 
+                Duration = 4, 
+                Image = 4483362458 
+            })
+        else
+            Rayfield:Notify({ 
+                Title = "❌ No Lemons Found", 
+                Content = "No fruits with ClickDetectors found on your tycoon.", 
+                Duration = 4, 
+                Image = 4483362458 
+            })
+        end
     end,
 })
 
@@ -399,7 +383,6 @@ NotesTab:CreateButton({
 })
 
 -- ==================== AUTO LOOPS ====================
--- Auto Click
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -415,28 +398,21 @@ task.spawn(function()
     end
 end)
 
--- Auto Upgrade
 task.spawn(function()
     while true do
         task.wait(0.2)
         if not autoUpgradeRunning then continue end
         local remotes = getAllPurchaseRemotes()
         upgradeFoundLbl:Set("🔍 Purchase Remotes Found: " .. #remotes)
-        
         if #remotes == 0 then
             upgradeStatusLbl:Set("❌ No purchase remotes!")
-            task.wait(2)
-            continue
+            task.wait(2) continue
         end
-        
         for _, remote in ipairs(remotes) do
             if not autoUpgradeRunning then break end
             pcall(function()
-                if remote:IsA("RemoteFunction") then
-                    remote:InvokeServer(false)
-                elseif remote:IsA("RemoteEvent") then
-                    remote:FireServer(false)
-                end
+                if remote:IsA("RemoteFunction") then remote:InvokeServer(false)
+                elseif remote:IsA("RemoteEvent") then remote:FireServer(false) end
             end)
             upgradeCount += 1
             upgradeCountLbl:Set("⬆️ Purchases: " .. upgradeCount)
@@ -446,7 +422,6 @@ task.spawn(function()
     end
 end)
 
--- Auto Rebirth
 task.spawn(function()
     while true do
         task.wait(rebirthDelay)
@@ -484,7 +459,6 @@ task.spawn(function()
     end
 end)
 
--- Anti AFK
 task.spawn(function()
     while true do
         task.wait(60)
