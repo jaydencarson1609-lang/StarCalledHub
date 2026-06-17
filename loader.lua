@@ -50,6 +50,11 @@ for _, gameEntry in ipairs(SUPPORTED_GAMES) do
             gameEntry.loader()
         end,
     })
+    
+    -- Special warning only for Sell Lemons
+    if gameEntry.name == "Sell Lemons 🍋" then
+        GameTab:CreateLabel("   ⚠️ This is really bad — under development but can still try it.")
+    end
 end
 
 GameTab:CreateSection("📝 About")
