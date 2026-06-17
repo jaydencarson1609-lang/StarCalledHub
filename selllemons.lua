@@ -43,76 +43,56 @@ local function getTycoon()
     return nil
 end
 
-local function getRemote(name)
-    local tycoon = getTycoon()
-    if not tycoon then return nil end
-    local remotes = tycoon:FindFirstChild("Remotes")
-    if not remotes then return nil end
-    return remotes:FindFirstChild(name)
-end
-
-local function getAllPurchaseRemotes()
-    local tycoon = getTycoon()
-    if not tycoon then return {} end
-    local purchases = tycoon:FindFirstChild("Purchases")
-    if not purchases then return {} end
-    local found = {}
-    for _, obj in ipairs(purchases:GetDescendants()) do
-        if obj.Name == "Purchase" and (obj:IsA("RemoteFunction") or obj:IsA("RemoteEvent")) then
-            table.insert(found, obj)
-        end
-    end
-    return found
-end
-
--- IMPROVED: Click All Lemons on Trees
+-- IMPROVED Lemon Clicker (more flexible)
 local function clickAllLemonsOnTrees()
     local tycoon = getTycoon()
-    if not tycoon then return 0 end
-
-    local constant = tycoon:FindFirstChild("Constant")
-    if not constant then return 0 end
-
-    local treesFolder = constant:FindFirstChild("Trees")
-    if not treesFolder then return 0 end
+    if not tycoon then 
+        Rayfield:Notify({Title = "❌ Error", Content = "Tycoon not found!", Duration = 3})
+        return 0 
+    end
 
     local clicked = 0
-    local clickRemote = game:GetService("ReplicatedStorage"):FindFirstChild("Core", true) and 
-                       game:GetService("ReplicatedStorage").Core:FindFirstChild("RemoteSignal", true) and
-                       game:GetService("ReplicatedStorage").Core.RemoteSignal:FindFirstChild("ClickFruitService.Clicked")
 
-    for _, tree in ipairs(treesFolder:GetChildren()) do
-        if tree.Name:find("LemonTree") then
-            for _, fruit in ipairs(tree:GetChildren()) do
-                if fruit.Name == "Fruit" then
-                    -- Method 1: ClickDetector
-                    local clickPart = fruit:FindFirstChild("ClickAttachment") and fruit.ClickAttachment:FindFirstChild("ClickPart")
-                    if clickPart then
-                        local detector = clickPart:FindFirstChildOfClass("ClickDetector")
-                        if detector then
-                            pcall(function()
-                                fireclickdetector(detector, 0)
-                            end)
-                            clicked += 1
-                        end
-                    end
+    -- Find the ClickFruitService remote
+    local clickRemote = nil
+    local core = game:GetService("ReplicatedStorage"):FindFirstChild("Core", true)
+    if core then
+        local remoteSignal = core:FindFirstChild("RemoteSignal", true)
+        if remoteSignal then
+            clickRemote = remoteSignal:FindFirstChild("ClickFruitService.Clicked")
+        end
+    end
 
-                    -- Method 2: Remote (more reliable)
-                    if clickRemote then
-                        local pos = fruit.Position or fruit:GetPivot().Position
-                        pcall(function()
-                            firesignal(clickRemote.OnClientEvent, math.random(9,10) + math.random(), pos, false)
-                        end)
-                        clicked += 1
-                    end
+    -- Scan ALL descendants for Fruit with ClickDetector
+    for _, obj in ipairs(tycoon:GetDescendants()) do
+        if obj.Name == "Fruit" then
+            -- Try ClickDetector
+            local clickPart = obj:FindFirstChild("ClickAttachment", true) and obj:FindFirstChild("ClickAttachment", true):FindFirstChild("ClickPart")
+            if clickPart then
+                local detector = clickPart:FindFirstChildOfClass("ClickDetector")
+                if detector then
+                    pcall(function()
+                        fireclickdetector(detector, 0)
+                    end)
+                    clicked += 1
                 end
+            end
+
+            -- Try Remote Method
+            if clickRemote and obj.Parent and obj.Parent.Position then
+                local pos = obj:GetPivot().Position
+                pcall(function()
+                    firesignal(clickRemote.OnClientEvent, 9.8242151758424, pos, false)
+                end)
+                clicked += 1
             end
         end
     end
+
     return clicked
 end
 
--- ==================== FARM TAB ====================
+-- ==================== FARM TAB (unchanged) ====================
 FarmTab:CreateSection("🎯 Tycoon Selector")
 local tycoonLbl = FarmTab:CreateLabel("🏠 Selected: Tycoon1")
 local tycoonStatusLbl = FarmTab:CreateLabel("⚪ Status: Not checked")
@@ -341,15 +321,15 @@ OtherTab:CreateButton({
         if count > 0 then
             Rayfield:Notify({ 
                 Title = "✅ Success!", 
-                Content = "Clicked " .. count .. " lemons!", 
-                Duration = 4, 
+                Content = "Clicked " .. count .. " lemons on trees!", 
+                Duration = 5, 
                 Image = 4483362458 
             })
         else
             Rayfield:Notify({ 
-                Title = "❌ No Lemons", 
-                Content = "No fruits found. Make sure trees have lemons.", 
-                Duration = 4, 
+                Title = "❌ Still No Lemons Detected", 
+                Content = "Could not find any Fruit with ClickDetector.\nTry the button again or tell me what you see.", 
+                Duration = 6, 
                 Image = 4483362458 
             })
         end
@@ -370,12 +350,12 @@ OtherTab:CreateToggle({
     end,
 })
 
--- ==================== NOTES TAB ====================
+-- NOTES & LOOPS (same as before)
 NotesTab:CreateSection("📝 About")
 NotesTab:CreateLabel("★ StarCalled Hub")
 NotesTab:CreateLabel("Made by: Jayden")
 NotesTab:CreateLabel("Game: Sell Lemons 🍋")
-NotesTab:CreateLabel("Version: 1.0.4")
+NotesTab:CreateLabel("Version: 1.0.5 - Lemon Fix")
 NotesTab:CreateSection("🕐 Session Info")
 local timeLbl = NotesTab:CreateLabel("🕐 Loading time...")
 local function getTime()
@@ -389,7 +369,7 @@ NotesTab:CreateButton({
     Callback = function() timeLbl:Set("🕐 Loaded at: " .. getTime()) end,
 })
 
--- Auto Loops (unchanged)
+-- Auto Loops (unchanged from previous)
 task.spawn(function()
     while true do
         task.wait(0.1)
