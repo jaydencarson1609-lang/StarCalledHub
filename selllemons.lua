@@ -1,6 +1,4 @@
--- StarCalled Hub | Sell Lemons 🍋
--- Auto Farm, Auto Upgrade, Auto Rebirth, Auto Click
-
+```lua
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
@@ -150,6 +148,35 @@ FarmTab:CreateButton({
         clickCount += 1
         clickCountLbl:Set("🍋 Clicks: " .. clickCount)
         Rayfield:Notify({ Title = "✅ Clicked", Content = "Lemon Stand clicked!", Duration = 2, Image = 4483362458 })
+    end,
+})
+
+FarmTab:CreateSection("🍋 Click Lemons")
+local clickLemonStatusLbl = FarmTab:CreateLabel("⚪ Click Lemons: Idle")
+
+FarmTab:CreateButton({
+    Name = "Click Lemons",
+    Callback = function()
+        local tycoon = getTycoon()
+        if not tycoon then
+            Rayfield:Notify({ Title = "❌ Error", Content = "Tycoon" .. selectedTycoon .. " not found!", Duration = 3, Image = 4483362458 })
+            return
+        end
+        local remotes = tycoon:FindFirstChild("Remotes")
+        if not remotes then
+            Rayfield:Notify({ Title = "❌ Error", Content = "No Remotes folder found!", Duration = 3, Image = 4483362458 })
+            return
+        end
+        local event = remotes:FindFirstChild("SpecialIncome")
+        if not event then
+            Rayfield:Notify({ Title = "❌ Error", Content = "SpecialIncome event not found!", Duration = 3, Image = 4483362458 })
+            return
+        end
+        pcall(function()
+            event:FireServer("ClickFruit", 7.6392762609385)
+        end)
+        clickLemonStatusLbl:Set("🟢 Clicked Lemons!")
+        Rayfield:Notify({ Title = "✅ Clicked", Content = "Lemons clicked!", Duration = 2, Image = 4483362458 })
     end,
 })
 
@@ -463,3 +490,4 @@ task.spawn(function()
         hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, -0.1)
     end
 end)
+```
