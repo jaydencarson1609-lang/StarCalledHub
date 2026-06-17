@@ -17,10 +17,19 @@ local SUPPORTED_GAMES = {
     {
         name = "Baby Pursuers",
         placeId = 96369863816442,
-        description = "Auto Spawn Baby",
+        description = "Auto Spawn + Auto Farm babies into Vent",
         emoji = "👶",
         loader = function()
             loadstring(game:HttpGet("https://raw.githubusercontent.com/jaydencarson1609-lang/StarCalledHub/main/babypursuers.lua"))()
+        end
+    },
+    {
+        name = "Sell Lemons 🍋",
+        placeId = 79268393072444,
+        description = "Auto Click + Auto Upgrade + Auto Rebirth",
+        emoji = "🍋",
+        loader = function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/jaydencarson1609-lang/StarCalledHub/main/selllemons.lua"))()
         end
     },
 }
@@ -41,7 +50,7 @@ local Window = Rayfield:CreateWindow({
 local GameTab = Window:CreateTab("🎮 Games", 4483362458)
 
 GameTab:CreateSection("Supported Games")
-GameTab:CreateLabel("Place ID: " .. tostring(currentPlaceId))
+GameTab:CreateLabel("📍 Place ID: " .. tostring(currentPlaceId))
 
 local foundMatch = false
 
@@ -86,4 +95,6 @@ else
     GameTab:CreateLabel("✅ Your game is supported! Click above to load.")
 end
 
-GameTab:CreateLabel("★ StarCalled Hub — more games coming soon!")
+GameTab:CreateSection("📝 About")
+GameTab:CreateLabel("★ StarCalled Hub — Made by Jayden")
+GameTab:CreateLabel("More games coming soon!")
