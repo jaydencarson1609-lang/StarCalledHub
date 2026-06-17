@@ -1,4 +1,4 @@
--- 🌱 Grow a Garden 2 | StarCalled Hub - DIAGNOSTIC BUILD v4
+-- 🌱 Grow a Garden 2 | StarCalled Hub - DIAGNOSTIC BUILD v5
 
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
@@ -24,6 +24,7 @@ local selectedSeed = "Carrot"
 local seedList = {"Carrot", "Strawberry", "Blueberry", "Tulip", "Tomato", "Apple", "Bamboo", "Mushroom", "Pumpkin", "Rose", "Sunflower"}
 
 local harvestToggleRef
+local cachedPlotsControllerResult = nil
 
 local function dbg(...)
     if debugMode then
@@ -55,11 +56,51 @@ do
     end
 end
 
--- Get Player's Plot — plots live under workspace.Gardens
-local function getPlayerPlot()
+local function findPlotsController()
+    local ps = player:FindFirstChild("PlayerScripts")
+    if not ps then return nil end
+    local controllers = ps:FindFirstChild("Controllers", true)
+    if not controllers then return nil end
+    return controllers:FindFirstChild("PlotsController", true)
+end
+
+-- Try the client controller's own table for a getter/field that returns the plot
+local function resolvePlotViaController()
+    local mod = findPlotsController()
+    if not mod or not mod:IsA("ModuleScript") then
+        return nil
+    end
+    local ok, result = pcall(require, mod)
+    if not ok or typeof(result) ~= "table" then
+        return nil
+    end
+    cachedPlotsControllerResult = result
+
+    local getterCandidates = {"GetPlot", "GetMyPlot", "GetCurrentPlot", "GetAssignedPlot", "GetOwnedPlot", "GetPlayerPlot"}
+    for _, fname in ipairs(getterCandidates) do
+        if typeof(result[fname]) == "function" then
+            local callOk, plot = pcall(result[fname], result)
+            if callOk and typeof(plot) == "Instance" then
+                return plot
+            end
+        end
+    end
+
+    local fieldCandidates = {"Plot", "MyPlot", "CurrentPlot", "AssignedPlot", "OwnedPlot"}
+    for _, fname in ipairs(fieldCandidates) do
+        if typeof(result[fname]) == "Instance" then
+            return result[fname]
+        end
+    end
+
+    return nil
+end
+
+-- Fallback: scan Gardens for a Plot whose Owner value matches us
+local function resolvePlotViaOwnerScan()
     local gardens = workspace:FindFirstChild("Gardens", true)
     if not gardens then
-        dbg("getPlayerPlot: 'Gardens' folder not found in workspace")
+        dbg("resolvePlotViaOwnerScan: 'Gardens' folder not found")
         return nil
     end
     for _, v in ipairs(gardens:GetChildren()) do
@@ -70,8 +111,16 @@ local function getPlayerPlot()
             end
         end
     end
-    dbg("getPlayerPlot: no Plot under Gardens matched Owner == player")
+    dbg("resolvePlotViaOwnerScan: no Plot under Gardens matched Owner == player")
     return nil
+end
+
+local function getPlayerPlot()
+    local viaController = resolvePlotViaController()
+    if viaController then
+        return viaController
+    end
+    return resolvePlotViaOwnerScan()
 end
 
 -- Equip Tool: returns the actual tool instance, not just true/false
@@ -110,21 +159,35 @@ DebugTab:CreateToggle({
 })
 
 DebugTab:CreateButton({
-    Name = "Dump Backpack Tool Names",
+    Name = "Inspect PlotsController",
     Callback = function()
-        if player.Backpack then
-            for _, tool in ipairs(player.Backpack:GetChildren()) do
-                print("[Backpack]", tool.Name, tool.ClassName)
-            end
+        local mod = findPlotsController()
+        if not mod then
+            print("[PlotsController] not found under PlayerScripts.Controllers")
+            return
         end
-        local char = player.Character
-        if char then
-            for _, tool in ipairs(char:GetChildren()) do
-                if tool:IsA("Tool") then
-                    print("[Character]", tool.Name, tool.ClassName)
-                end
+        print("[PlotsController] Found:", mod:GetFullName(), "| ClassName:", mod.ClassName)
+        if not mod:IsA("ModuleScript") then
+            print("[PlotsController] Not a ModuleScript — listing children instead:")
+            for _, child in ipairs(mod:GetChildren()) do
+                print("  ", child.Name, child.ClassName)
             end
+            return
         end
+        local ok, result = pcall(require, mod)
+        if not ok then
+            print("[PlotsController] require() failed:", result)
+            return
+        end
+        if typeof(result) ~= "table" then
+            print("[PlotsController] require() returned:", typeof(result))
+            return
+        end
+        for key, value in pairs(result) do
+            print("[PlotsController] key:", key, "| type:", typeof(value))
+        end
+        local plot = resolvePlotViaController()
+        print("[PlotsController] resolvePlotViaController() ->", plot and plot:GetFullName() or "nil")
     end,
 })
 
@@ -139,7 +202,7 @@ DebugTab:CreateButton({
         for _, v in ipairs(gardens:GetChildren()) do
             if v.Name:match("^Plot%d+$") then
                 local owner = v:FindFirstChild("Owner")
-                print("[Plots]", v.Name, "| Owner:", owner and tostring(owner.Value) or "none", "| You:", tostring(player))
+                print("[Plots]", v.Name, "| Owner:", owner and tostring(owner.Value) or "none (or different property name)", "| You:", tostring(player))
             end
         end
     end,
@@ -150,7 +213,7 @@ DebugTab:CreateButton({
     Callback = function()
         local plot = getPlayerPlot()
         if not plot then
-            print("[Plot] getPlayerPlot() returned nil — run 'Dump All Plots + Owners' to see why")
+            print("[Plot] getPlayerPlot() returned nil — run 'Inspect PlotsController' and 'Dump All Plots + Owners'")
             return
         end
         print("[Plot] Found:", plot:GetFullName())
@@ -230,7 +293,7 @@ task.spawn(function()
     end
 end)
 
--- Auto Harvest — walks the character to each plant before firing, stops when none remain
+-- Auto Harvest — resolves plot via controller first, walks to each plant, stops when done
 task.spawn(function()
     while true do
         if autoHarvestRunning then
@@ -297,4 +360,4 @@ task.spawn(function()
     end
 end)
 
-Rayfield:Notify({Title = "🌱 Loaded", Content = "Check Debug tab if anything still fails", Duration = 8})
+Rayfield:Notify({Title = "🌱 Loaded", Content = "Run Inspect PlotsController if Auto Harvest still fails", Duration = 8})
