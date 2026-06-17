@@ -1,4 +1,4 @@
--- 🌱 Grow a Garden 2 | StarCalled Hub - DIAGNOSTIC BUILD v5
+-- 🌱 Grow a Garden 2 | StarCalled Hub - DIAGNOSTIC BUILD v6
 
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
@@ -24,7 +24,6 @@ local selectedSeed = "Carrot"
 local seedList = {"Carrot", "Strawberry", "Blueberry", "Tulip", "Tomato", "Apple", "Bamboo", "Mushroom", "Pumpkin", "Rose", "Sunflower"}
 
 local harvestToggleRef
-local cachedPlotsControllerResult = nil
 
 local function dbg(...)
     if debugMode then
@@ -64,7 +63,7 @@ local function findPlotsController()
     return controllers:FindFirstChild("PlotsController", true)
 end
 
--- Try the client controller's own table for a getter/field that returns the plot
+-- Best case: ask the client controller directly, if it exposes something usable
 local function resolvePlotViaController()
     local mod = findPlotsController()
     if not mod or not mod:IsA("ModuleScript") then
@@ -74,8 +73,6 @@ local function resolvePlotViaController()
     if not ok or typeof(result) ~= "table" then
         return nil
     end
-    cachedPlotsControllerResult = result
-
     local getterCandidates = {"GetPlot", "GetMyPlot", "GetCurrentPlot", "GetAssignedPlot", "GetOwnedPlot", "GetPlayerPlot"}
     for _, fname in ipairs(getterCandidates) do
         if typeof(result[fname]) == "function" then
@@ -85,24 +82,54 @@ local function resolvePlotViaController()
             end
         end
     end
-
     local fieldCandidates = {"Plot", "MyPlot", "CurrentPlot", "AssignedPlot", "OwnedPlot"}
     for _, fname in ipairs(fieldCandidates) do
         if typeof(result[fname]) == "Instance" then
             return result[fname]
         end
     end
-
     return nil
 end
 
--- Fallback: scan Gardens for a Plot whose Owner value matches us
-local function resolvePlotViaOwnerScan()
+-- Primary fallback: whichever Plot the character is physically standing closest to.
+-- Doesn't need to know how ownership is tracked internally at all.
+local function resolvePlotByProximity()
     local gardens = workspace:FindFirstChild("Gardens", true)
     if not gardens then
-        dbg("resolvePlotViaOwnerScan: 'Gardens' folder not found")
+        dbg("resolvePlotByProximity: 'Gardens' folder not found")
         return nil
     end
+    local char = player.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then
+        dbg("resolvePlotByProximity: no HumanoidRootPart")
+        return nil
+    end
+    local closestPlot, closestDist = nil, math.huge
+    for _, v in ipairs(gardens:GetChildren()) do
+        if v.Name:match("^Plot%d+$") then
+            local ok, pivot = pcall(function() return v:GetPivot() end)
+            if ok and pivot then
+                local dist = (root.Position - pivot.Position).Magnitude
+                if dist < closestDist then
+                    closestDist = dist
+                    closestPlot = v
+                end
+            end
+        end
+    end
+    if closestPlot then
+        dbg("resolvePlotByProximity: closest is", closestPlot.Name, "| dist:", math.floor(closestDist))
+    else
+        dbg("resolvePlotByProximity: no Plot%d+ children found under Gardens")
+    end
+    return closestPlot
+end
+
+-- Legacy fallback, kept in case it turns out to be valid after all
+local function resolvePlotViaOwnerScan()
+    local gardens = workspace:FindFirstChild("Gardens", true)
+    if not gardens then return nil end
     for _, v in ipairs(gardens:GetChildren()) do
         if v.Name:match("^Plot%d+$") then
             local owner = v:FindFirstChild("Owner")
@@ -111,16 +138,11 @@ local function resolvePlotViaOwnerScan()
             end
         end
     end
-    dbg("resolvePlotViaOwnerScan: no Plot under Gardens matched Owner == player")
     return nil
 end
 
 local function getPlayerPlot()
-    local viaController = resolvePlotViaController()
-    if viaController then
-        return viaController
-    end
-    return resolvePlotViaOwnerScan()
+    return resolvePlotViaController() or resolvePlotByProximity() or resolvePlotViaOwnerScan()
 end
 
 -- Equip Tool: returns the actual tool instance, not just true/false
@@ -159,52 +181,10 @@ DebugTab:CreateToggle({
 })
 
 DebugTab:CreateButton({
-    Name = "Inspect PlotsController",
+    Name = "Test Plot Resolution",
     Callback = function()
-        local mod = findPlotsController()
-        if not mod then
-            print("[PlotsController] not found under PlayerScripts.Controllers")
-            return
-        end
-        print("[PlotsController] Found:", mod:GetFullName(), "| ClassName:", mod.ClassName)
-        if not mod:IsA("ModuleScript") then
-            print("[PlotsController] Not a ModuleScript — listing children instead:")
-            for _, child in ipairs(mod:GetChildren()) do
-                print("  ", child.Name, child.ClassName)
-            end
-            return
-        end
-        local ok, result = pcall(require, mod)
-        if not ok then
-            print("[PlotsController] require() failed:", result)
-            return
-        end
-        if typeof(result) ~= "table" then
-            print("[PlotsController] require() returned:", typeof(result))
-            return
-        end
-        for key, value in pairs(result) do
-            print("[PlotsController] key:", key, "| type:", typeof(value))
-        end
-        local plot = resolvePlotViaController()
-        print("[PlotsController] resolvePlotViaController() ->", plot and plot:GetFullName() or "nil")
-    end,
-})
-
-DebugTab:CreateButton({
-    Name = "Dump All Plots + Owners",
-    Callback = function()
-        local gardens = workspace:FindFirstChild("Gardens", true)
-        if not gardens then
-            print("[Plots] 'Gardens' folder not found")
-            return
-        end
-        for _, v in ipairs(gardens:GetChildren()) do
-            if v.Name:match("^Plot%d+$") then
-                local owner = v:FindFirstChild("Owner")
-                print("[Plots]", v.Name, "| Owner:", owner and tostring(owner.Value) or "none (or different property name)", "| You:", tostring(player))
-            end
-        end
+        local plot = getPlayerPlot()
+        print("[Test] getPlayerPlot() ->", plot and plot:GetFullName() or "nil")
     end,
 })
 
@@ -213,7 +193,7 @@ DebugTab:CreateButton({
     Callback = function()
         local plot = getPlayerPlot()
         if not plot then
-            print("[Plot] getPlayerPlot() returned nil — run 'Inspect PlotsController' and 'Dump All Plots + Owners'")
+            print("[Plot] Still nil — Gardens folder may not exist on this client, or character has no HumanoidRootPart yet")
             return
         end
         print("[Plot] Found:", plot:GetFullName())
@@ -293,16 +273,14 @@ task.spawn(function()
     end
 end)
 
--- Auto Harvest — resolves plot via controller first, walks to each plant, stops when done
+-- Auto Harvest — proximity-based plot resolution, walks to each prompt, stops when done
 task.spawn(function()
     while true do
         if autoHarvestRunning then
             safeCall("AutoHarvest", function()
                 local plot = getPlayerPlot()
                 if not plot then
-                    autoHarvestRunning = false
-                    if harvestToggleRef then harvestToggleRef:Set(false) end
-                    Rayfield:Notify({Title = "🌾 Auto Harvest", Content = "No plot found — stopped", Duration = 4})
+                    dbg("AutoHarvest: plot still not resolved")
                     return
                 end
 
@@ -360,4 +338,4 @@ task.spawn(function()
     end
 end)
 
-Rayfield:Notify({Title = "🌱 Loaded", Content = "Run Inspect PlotsController if Auto Harvest still fails", Duration = 8})
+Rayfield:Notify({Title = "🌱 Loaded", Content = "Toggle Auto Harvest and check console", Duration = 8})2
