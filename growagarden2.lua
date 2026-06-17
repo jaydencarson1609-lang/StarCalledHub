@@ -1,4 +1,4 @@
--- 🌱 Grow a Garden 2 | StarCalled Hub - DIAGNOSTIC BUILD v3
+-- 🌱 Grow a Garden 2 | StarCalled Hub - DIAGNOSTIC BUILD v4
 
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
@@ -22,6 +22,8 @@ local debugMode = true
 local selectedSeed = "Carrot"
 
 local seedList = {"Carrot", "Strawberry", "Blueberry", "Tulip", "Tomato", "Apple", "Bamboo", "Mushroom", "Pumpkin", "Rose", "Sunflower"}
+
+local harvestToggleRef
 
 local function dbg(...)
     if debugMode then
@@ -53,7 +55,7 @@ do
     end
 end
 
--- Get Player's Plot — plots live under workspace.Gardens, not workspace directly
+-- Get Player's Plot — plots live under workspace.Gardens
 local function getPlayerPlot()
     local gardens = workspace:FindFirstChild("Gardens", true)
     if not gardens then
@@ -89,6 +91,15 @@ local function equipTool(name)
         task.wait(0.05)
     until char:FindFirstChildOfClass("Tool") or os.clock() > deadline
     return char:FindFirstChildOfClass("Tool")
+end
+
+-- Find the BasePart a prompt is anchored to, walking up if needed
+local function getPromptPart(prompt)
+    local node = prompt.Parent
+    while node and not node:IsA("BasePart") do
+        node = node.Parent
+    end
+    return node
 end
 
 -- ==================== DEBUG TAB ====================
@@ -147,7 +158,8 @@ DebugTab:CreateButton({
         for _, inst in ipairs(plot:GetDescendants()) do
             if inst:IsA("ProximityPrompt") then
                 count += 1
-                print("[Prompt]", inst:GetFullName(), "| Name:", inst.Name, "| ActionText:", inst.ActionText, "| Enabled:", inst.Enabled)
+                local part = getPromptPart(inst)
+                print("[Prompt]", inst:GetFullName(), "| Enabled:", inst.Enabled, "| HoldDuration:", inst.HoldDuration, "| Part:", part and part:GetFullName() or "none")
             end
         end
         print("[Plot] Total ProximityPrompts found:", count)
@@ -181,7 +193,7 @@ MainTab:CreateToggle({
     Callback = function(val) autoPlantRunning = val end,
 })
 
-MainTab:CreateToggle({
+harvestToggleRef = MainTab:CreateToggle({
     Name = "Auto Harvest",
     CurrentValue = false,
     Callback = function(val) autoHarvestRunning = val end,
@@ -218,27 +230,64 @@ task.spawn(function()
     end
 end)
 
--- Auto Harvest — plot now resolved correctly via Gardens, matches ProximityPrompt by class
+-- Auto Harvest — walks the character to each plant before firing, stops when none remain
 task.spawn(function()
     while true do
         if autoHarvestRunning then
             safeCall("AutoHarvest", function()
                 local plot = getPlayerPlot()
                 if not plot then
+                    autoHarvestRunning = false
+                    if harvestToggleRef then harvestToggleRef:Set(false) end
+                    Rayfield:Notify({Title = "🌾 Auto Harvest", Content = "No plot found — stopped", Duration = 4})
                     return
                 end
-                local harvested = 0
+
+                local prompts = {}
                 for _, inst in ipairs(plot:GetDescendants()) do
                     if inst:IsA("ProximityPrompt") and inst.Enabled then
-                        local ok = safeCall("FirePrompt:" .. inst:GetFullName(), function()
-                            fireproximityprompt(inst)
-                        end)
-                        if ok then
-                            harvested += 1
-                        end
-                        task.wait(0.05)
+                        table.insert(prompts, inst)
                     end
                 end
+
+                if #prompts == 0 then
+                    dbg("AutoHarvest: nothing left to harvest")
+                    autoHarvestRunning = false
+                    if harvestToggleRef then harvestToggleRef:Set(false) end
+                    Rayfield:Notify({Title = "🌾 Auto Harvest", Content = "All plants harvested — stopped", Duration = 4})
+                    return
+                end
+
+                local char = player.Character
+                local root = char and char:FindFirstChild("HumanoidRootPart")
+                if not root then
+                    dbg("AutoHarvest: no HumanoidRootPart")
+                    return
+                end
+
+                local originalCFrame = root.CFrame
+                local harvested = 0
+
+                for _, prompt in ipairs(prompts) do
+                    if not autoHarvestRunning then break end
+                    if prompt.Enabled and prompt.Parent then
+                        local part = getPromptPart(prompt)
+                        if part then
+                            root.CFrame = CFrame.new(part.Position + Vector3.new(0, 2, 0))
+                            task.wait(0.1)
+                            local ok = safeCall("FirePrompt:" .. prompt:GetFullName(), function()
+                                fireproximityprompt(prompt, prompt.HoldDuration)
+                            end)
+                            if ok then
+                                harvested += 1
+                            end
+                            task.wait(0.1)
+                        end
+                    end
+                end
+
+                root.CFrame = originalCFrame
+
                 if harvested > 0 then
                     dbg("Harvested " .. harvested .. " plants")
                 end
