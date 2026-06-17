@@ -1,4 +1,3 @@
-```lua
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
@@ -490,4 +489,3 @@ task.spawn(function()
         hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, -0.1)
     end
 end)
-```
