@@ -1,4 +1,4 @@
--- 🌱 Grow a Garden 2 | StarCalled Hub - DIAGNOSTIC BUILD
+-- 🌱 Grow a Garden 2 | StarCalled Hub - DIAGNOSTIC BUILD v2
 
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
@@ -95,13 +95,17 @@ DebugTab:CreateToggle({
 DebugTab:CreateButton({
     Name = "Dump Backpack Tool Names",
     Callback = function()
-        if not player.Backpack then return end
-        for _, tool in ipairs(player.Backpack:GetChildren()) do
-            print("[Backpack]", tool.Name, tool.ClassName)
+        if player.Backpack then
+            for _, tool in ipairs(player.Backpack:GetChildren()) do
+                print("[Backpack]", tool.Name, tool.ClassName)
+            end
         end
-        for _, tool in ipairs(player.Character and player.Character:GetChildren() or {}) do
-            if tool:IsA("Tool") then
-                print("[Character]", tool.Name, tool.ClassName)
+        local char = player.Character
+        if char then
+            for _, tool in ipairs(char:GetChildren()) do
+                if tool:IsA("Tool") then
+                    print("[Character]", tool.Name, tool.ClassName)
+                end
             end
         end
     end,
@@ -116,11 +120,14 @@ DebugTab:CreateButton({
             return
         end
         print("[Plot] Found:", plot:GetFullName())
+        local count = 0
         for _, inst in ipairs(plot:GetDescendants()) do
             if inst:IsA("ProximityPrompt") then
+                count += 1
                 print("[Prompt]", inst:GetFullName(), "| Name:", inst.Name, "| ActionText:", inst.ActionText, "| Enabled:", inst.Enabled)
             end
         end
+        print("[Plot] Total ProximityPrompts found:", count)
     end,
 })
 
@@ -188,7 +195,7 @@ task.spawn(function()
     end
 end)
 
--- Auto Harvest — matches by ActionText too, not just instance Name
+-- Auto Harvest — matches by ClassName only, no name guessing
 task.spawn(function()
     while true do
         if autoHarvestRunning then
@@ -201,13 +208,13 @@ task.spawn(function()
                 local harvested = 0
                 for _, inst in ipairs(plot:GetDescendants()) do
                     if inst:IsA("ProximityPrompt") and inst.Enabled then
-                        local nameMatch = inst.Name == "HarvestPrompt" or inst.Name == "HarvestPromptLabel"
-                        local textMatch = inst.ActionText and inst.ActionText:lower():find("harvest")
-                        if nameMatch or textMatch then
+                        local ok = safeCall("FirePrompt:" .. inst:GetFullName(), function()
                             fireproximityprompt(inst)
+                        end)
+                        if ok then
                             harvested += 1
-                            task.wait(0.05)
                         end
+                        task.wait(0.05)
                     end
                 end
                 if harvested > 0 then
@@ -219,4 +226,4 @@ task.spawn(function()
     end
 end)
 
-Rayfield:Notify({Title = "🌱 Loaded", Content = "Open the Debug tab if Plant/Harvest still fail", Duration = 8})
+Rayfield:Notify({Title = "🌱 Loaded", Content = "Check Debug tab if anything still fails", Duration = 8})
