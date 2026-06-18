@@ -467,18 +467,63 @@ end
 
 -- ==================== CONFIG ====================
 
-local RemoteFolder = waitForChildWithTimeout(ReplicatedStorage, "RemoteEvents", 8)
+local function findBestRemoteFolder()
+    local candidates = {"RemoteEvents", "Remotes", "Events", "Remote"}
+
+    for _, name in ipairs(candidates) do
+        local folder = ReplicatedStorage:FindFirstChild(name)
+        if folder and folder:IsA("Folder") then
+            return folder
+        end
+    end
+
+    local knownRemoteNames = {
+        "BuySeed", "PlantSeed", "HarvestSeed", "SellSeed", "SellAll",
+        "BuyGear", "BuyItem", "PurchaseGear",
+    }
+
+    for _, child in ipairs(ReplicatedStorage:GetChildren()) do
+        if child:IsA("Folder") then
+            for _, name in ipairs(knownRemoteNames) do
+                if child:FindFirstChild(name) then
+                    return child
+                end
+            end
+        end
+    end
+
+    return nil
+end
+
+local function findRemoteEvent(name)
+    if RemoteFolder then
+        local event = RemoteFolder:FindFirstChild(name)
+        if event then
+            return event
+        end
+    end
+
+    for _, descendant in ipairs(ReplicatedStorage:GetDescendants()) do
+        if descendant.Name == name and descendant:IsA("RemoteEvent") then
+            return descendant
+        end
+    end
+
+    return nil
+end
+
+local RemoteFolder = waitForChildWithTimeout(ReplicatedStorage, "RemoteEvents", 8) or findBestRemoteFolder()
 if not RemoteFolder then
     warn("[StarCalled GAG2] RemoteEvents folder not found in ReplicatedStorage")
 end
 
 local Remotes = {
-    BuySeed = waitForChildWithTimeout(RemoteFolder, "BuySeed", 5),
-    PlantSeed = waitForChildWithTimeout(RemoteFolder, "PlantSeed", 5),
-    HarvestSeed = waitForChildWithTimeout(RemoteFolder, "HarvestSeed", 5),
-    SellSeed = waitForChildWithTimeout(RemoteFolder, "SellSeed", 5),
-    SellAll = waitForChildWithTimeout(RemoteFolder, "SellAll", 5),
-    BuyGear = (RemoteFolder and (RemoteFolder:FindFirstChild("BuyGear") or RemoteFolder:FindFirstChild("BuyItem") or RemoteFolder:FindFirstChild("PurchaseGear"))) or nil,
+    BuySeed = findRemoteEvent("BuySeed"),
+    PlantSeed = findRemoteEvent("PlantSeed"),
+    HarvestSeed = findRemoteEvent("HarvestSeed"),
+    SellSeed = findRemoteEvent("SellSeed"),
+    SellAll = findRemoteEvent("SellAll"),
+    BuyGear = findRemoteEvent("BuyGear") or findRemoteEvent("BuyItem") or findRemoteEvent("PurchaseGear"),
 }
 
 local seedList = {
@@ -713,14 +758,20 @@ end
 -- ==================== GAME ACTIONS ====================
 
 local function buySeed(seed)
+    if not Remotes.BuySeed then
+        notify("Missing BuySeed", "Could not find a BuySeed remote in this game.", 6)
+        warn("[StarCalled GAG2] Missing BuySeed remote")
+        return
+    end
+
     log("Buying seed:", seed)
     Remotes.BuySeed:FireServer(seed)
 end
 
 local function buyGear(gear)
     if not Remotes.BuyGear then
-        notify("Missing BuyGear", "Add RemoteEvents.BuyGear to your game, or rename this script's fallback to your gear remote.", 6)
-        warn("[StarCalled GAG2] Missing gear remote. Expected RemoteEvents.BuyGear, BuyItem, or PurchaseGear")
+        notify("Missing BuyGear", "Could not find a BuyGear remote in this game.", 6)
+        warn("[StarCalled GAG2] Missing gear remote. Expected BuyGear, BuyItem, or PurchaseGear")
         return
     end
 
@@ -729,6 +780,12 @@ local function buyGear(gear)
 end
 
 local function plantSeed(seed)
+    if not Remotes.PlantSeed then
+        notify("Missing PlantSeed", "Could not find a PlantSeed remote in this game.", 6)
+        warn("[StarCalled GAG2] Missing PlantSeed remote")
+        return
+    end
+
     local position = getMousePosition()
 
     log("Planting seed:", seed, position)
@@ -739,16 +796,34 @@ local function plantSeed(seed)
 end
 
 local function harvestSeed(seed)
+    if not Remotes.HarvestSeed then
+        notify("Missing HarvestSeed", "Could not find a HarvestSeed remote in this game.", 6)
+        warn("[StarCalled GAG2] Missing HarvestSeed remote")
+        return
+    end
+
     log("Harvesting seed:", seed)
     Remotes.HarvestSeed:FireServer(seed)
 end
 
 local function sellSeed(seed)
+    if not Remotes.SellSeed then
+        notify("Missing SellSeed", "Could not find a SellSeed remote in this game.", 6)
+        warn("[StarCalled GAG2] Missing SellSeed remote")
+        return
+    end
+
     log("Selling seed/crop:", seed)
     Remotes.SellSeed:FireServer(seed)
 end
 
 local function sellSelectedTools()
+    if not Remotes.SellSeed then
+        notify("Missing SellSeed", "Could not find a SellSeed remote in this game.", 6)
+        warn("[StarCalled GAG2] Missing SellSeed remote")
+        return
+    end
+
     local humanoid = getHumanoid()
     local tools = findSelectedCropTools()
 
@@ -769,6 +844,12 @@ local function sellSelectedTools()
 end
 
 local function sellAll()
+    if not Remotes.SellAll then
+        notify("Missing SellAll", "Could not find a SellAll remote in this game.", 6)
+        warn("[StarCalled GAG2] Missing SellAll remote")
+        return
+    end
+
     Remotes.SellAll:FireServer()
 end
 
