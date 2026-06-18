@@ -149,6 +149,45 @@ local function getFruitRemotes(tycoon)
     return remotes
 end
 
+local function getPurchaseRemotes(tycoon)
+    local remotes = {}
+    if not tycoon then
+        return remotes
+    end
+
+    local purchases = tycoon:FindFirstChild("Purchases")
+    if purchases then
+        for _, descendant in ipairs(purchases:GetDescendants()) do
+            if descendant:IsA("RemoteFunction") or descendant:IsA("RemoteEvent") then
+                local name = descendant.Name:lower()
+                if name == "upgrade" or name:find("upgrade") or name:find("purchase") then
+                    table.insert(remotes, descendant)
+                end
+            end
+        end
+    end
+
+    return remotes
+end
+
+local function firePurchaseRemote(remote, amount)
+    if not remote then
+        return false
+    end
+
+    local ok = false
+    pcall(function()
+        if remote:IsA("RemoteFunction") then
+            remote:InvokeServer(amount)
+            ok = true
+        elseif remote:IsA("RemoteEvent") then
+            remote:FireServer(amount)
+            ok = true
+        end
+    end)
+    return ok
+end
+
 local function fireFruitRemote(remote, targetPart)
     if not remote then
         return false
@@ -429,8 +468,26 @@ task.spawn(function()
             task.wait(0.3)
             continue
         end
-        -- NOTE: getAllPurchaseRemotes() not defined — Auto Upgrade will not function until implemented
-        task.wait(upgradeDelay)
+
+        local tycoon = getTycoon()
+        if tycoon then
+            local purchaseRemotes = getPurchaseRemotes(tycoon)
+            local success = false
+
+            for _, remote in ipairs(purchaseRemotes) do
+                if firePurchaseRemote(remote, 1) then
+                    success = true
+                    upgradeCount += 1
+                end
+            end
+
+            if success then
+                upgradeCountLbl:Set("⬆️ Purchases: " .. upgradeCount)
+                upgradeStatusLbl:Set("🟢 Purchased upgrades: " .. upgradeCount)
+            end
+        end
+
+        task.wait(0.01)
     end
 end)
 
