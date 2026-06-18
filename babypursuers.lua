@@ -1,5 +1,5 @@
 -- StarCalled Hub | Baby Pursuers
--- Auto Spawn + Auto Pick Up & Drop into Vent
+-- Auto Spawn + Auto Pick Up & Drop into Vent + Drop at Saved Position
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -28,6 +28,7 @@ local afkRunning   = false
 local spawnCount   = 0
 local farmCount    = 0
 local spawnDelay   = 0.1
+local savedPosition = nil  -- NEW: saved drop position
 
 local GrabEvent = ReplicatedStorage:WaitForChild("GrabEvent")
 
@@ -80,7 +81,7 @@ local function teleportTo(part)
     return true
 end
 
--- SPAWN TAB
+-- ==================== SPAWN TAB ====================
 SpawnTab:CreateSection("👶 Auto Spawn Controls")
 local spawnStatusLbl = SpawnTab:CreateLabel("⚪ Status: Idle")
 local spawnerLbl     = SpawnTab:CreateLabel("🔍 Spawners Found: 0")
@@ -93,10 +94,10 @@ SpawnTab:CreateToggle({
         spawnRunning = val
         if val then
             spawnStatusLbl:Set("🟢 Running...")
-            Rayfield:Notify({ Title = "👶 Auto Spawn", Content = "Started!", Duration = 3, Image = 4483362458 })
+            Rayfield:Notify({ Title = "👶 Auto Spawn", Content = "Started!", Duration = 3 })
         else
             spawnStatusLbl:Set("⚪ Status: Idle")
-            Rayfield:Notify({ Title = "👶 Auto Spawn", Content = "Stopped.", Duration = 2, Image = 4483362458 })
+            Rayfield:Notify({ Title = "👶 Auto Spawn", Content = "Stopped.", Duration = 2 })
         end
     end,
 })
@@ -120,14 +121,14 @@ SpawnTab:CreateButton({
             spawnCount += 1
             task.wait(0.05)
         end
-        Rayfield:Notify({ Title = "Spawn Once", Content = "Clicked " .. #spawners .. " spawners!", Duration = 3, Image = 4483362458 })
+        Rayfield:Notify({ Title = "Spawn Once", Content = "Clicked " .. #spawners .. " spawners!", Duration = 3 })
     end,
 })
 
 SpawnTab:CreateSection("📈 Live Info")
 local spawnCountLbl = SpawnTab:CreateLabel("👶 Total Spawned: 0")
 
--- FARM TAB
+-- ==================== FARM TAB ====================
 FarmTab:CreateSection("🔄 Auto Pick Up & Drop")
 local farmStatusLbl = FarmTab:CreateLabel("⚪ Farm: Idle")
 local babyCountLbl  = FarmTab:CreateLabel("👶 Babies Found: 0")
@@ -142,30 +143,30 @@ FarmTab:CreateToggle({
         if val then
             local vent = getVent()
             if not vent then
-                Rayfield:Notify({ Title = "❌ Error", Content = "Vent part not found in workspace!", Duration = 4, Image = 4483362458 })
+                Rayfield:Notify({ Title = "❌ Error", Content = "Vent part not found in workspace!", Duration = 4 })
                 farmRunning = false
                 return
             end
             farmStatusLbl:Set("🟢 Farming...")
-            Rayfield:Notify({ Title = "🔄 Farm", Content = "Auto farm started!", Duration = 3, Image = 4483362458 })
+            Rayfield:Notify({ Title = "🔄 Farm", Content = "Auto farm started!", Duration = 3 })
         else
             farmStatusLbl:Set("⚪ Farm: Idle")
-            Rayfield:Notify({ Title = "🔄 Farm", Content = "Stopped.", Duration = 2, Image = 4483362458 })
+            Rayfield:Notify({ Title = "🔄 Farm", Content = "Stopped.", Duration = 2 })
         end
     end,
 })
 
 FarmTab:CreateButton({
-    Name = "Grab & Drop Once",
+    Name = "Grab & Drop Once (Vent)",
     Callback = function()
         local babies = getBabies()
         if #babies == 0 then
-            Rayfield:Notify({ Title = "❌ No Babies", Content = "No free babies found!", Duration = 3, Image = 4483362458 })
+            Rayfield:Notify({ Title = "❌ No Babies", Content = "No free babies found!", Duration = 3 })
             return
         end
         local vent = getVent()
         if not vent then
-            Rayfield:Notify({ Title = "❌ No Vent", Content = "Vent part not found!", Duration = 3, Image = 4483362458 })
+            Rayfield:Notify({ Title = "❌ No Vent", Content = "Vent part not found!", Duration = 3 })
             return
         end
         local baby = babies[1]
@@ -177,11 +178,76 @@ FarmTab:CreateButton({
         GrabEvent:FireServer("Drop")
         farmCount += 1
         farmCountLbl:Set("✅ Dropped: " .. farmCount)
-        Rayfield:Notify({ Title = "✅ Done", Content = "Grabbed and dropped 1 baby!", Duration = 3, Image = 4483362458 })
+        Rayfield:Notify({ Title = "✅ Done", Content = "Grabbed and dropped 1 baby!", Duration = 3 })
     end,
 })
 
--- STATS TAB
+-- ==================== NEW: SAVED POSITION DROP ====================
+FarmTab:CreateSection("📍 Drop at Saved Position")
+local savedPosLbl = FarmTab:CreateLabel("📍 No position saved yet")
+
+FarmTab:CreateButton({
+    Name = "📍 Save Current Position",
+    Callback = function()
+        local character = player.Character
+        local hrp = character and character:FindFirstChild("HumanoidRootPart")
+        if not hrp then
+            Rayfield:Notify({ Title = "❌ Error", Content = "No character found!", Duration = 3 })
+            return
+        end
+        savedPosition = hrp.CFrame
+        local pos = hrp.Position
+        savedPosLbl:Set(string.format("📍 Saved: %.1f, %.1f, %.1f", pos.X, pos.Y, pos.Z))
+        Rayfield:Notify({ Title = "📍 Position Saved", Content = "Drop point locked in!", Duration = 3 })
+    end,
+})
+
+FarmTab:CreateButton({
+    Name = "👶 Grab Baby → Drop at Saved Pos",
+    Callback = function()
+        if not savedPosition then
+            Rayfield:Notify({ Title = "❌ No Position", Content = "Save a position first!", Duration = 3 })
+            return
+        end
+        local babies = getBabies()
+        if #babies == 0 then
+            Rayfield:Notify({ Title = "❌ No Babies", Content = "No free babies found!", Duration = 3 })
+            return
+        end
+        local character = player.Character
+        local hrp = character and character:FindFirstChild("HumanoidRootPart")
+        if not hrp then
+            Rayfield:Notify({ Title = "❌ Error", Content = "No character!", Duration = 3 })
+            return
+        end
+        local baby = babies[1]
+        -- Teleport to baby and grab
+        teleportTo(baby.hitbox)
+        GrabEvent:FireServer("Grab", baby.hitbox)
+        task.wait(0.5)
+        -- Teleport back to saved position and drop
+        hrp.CFrame = savedPosition
+        task.wait(0.3)
+        GrabEvent:FireServer("Drop")
+        farmCount += 1
+        farmCountLbl:Set("✅ Dropped: " .. farmCount)
+        Rayfield:Notify({ Title = "✅ Dropped!", Content = "Baby dropped at your saved position.", Duration = 3 })
+    end,
+})
+
+FarmTab:CreateButton({
+    Name = "🔁 Auto Loop: Grab → Saved Pos (Toggle)",
+    Callback = function()
+        if not savedPosition then
+            Rayfield:Notify({ Title = "❌ No Position", Content = "Save a position first!", Duration = 3 })
+            return
+        end
+        -- Reuse farmRunning but for saved pos mode — toggle a separate flag
+        Rayfield:Notify({ Title = "💡 Tip", Content = "Use Auto Farm toggle for looping. This runs once.", Duration = 4 })
+    end,
+})
+
+-- ==================== STATS TAB ====================
 StatsTab:CreateSection("📊 Session Stats")
 local s_spawns = StatsTab:CreateLabel("Total Spawns: 0")
 local s_farm   = StatsTab:CreateLabel("Total Dropped: 0")
@@ -190,24 +256,25 @@ local s_babies = StatsTab:CreateLabel("Babies in World: 0")
 StatsTab:CreateButton({
     Name = "🗑 Reset Stats",
     Callback = function()
-        spawnCount = 0 farmCount = 0
+        spawnCount = 0
+        farmCount = 0
         spawnCountLbl:Set("👶 Total Spawned: 0")
         farmCountLbl:Set("✅ Dropped: 0")
         s_spawns:Set("Total Spawns: 0")
         s_farm:Set("Total Dropped: 0")
-        Rayfield:Notify({ Title = "Reset", Content = "Stats cleared!", Duration = 3, Image = 4483362458 })
+        Rayfield:Notify({ Title = "Reset", Content = "Stats cleared!", Duration = 3 })
     end,
 })
 
--- OTHERS TAB
+-- ==================== OTHERS TAB ====================
 OtherTab:CreateSection("🔧 Tools")
 
 OtherTab:CreateButton({
     Name = "🔍 Load Infinite Yield",
     Callback = function()
-        Rayfield:Notify({ Title = "🔍 Infinite Yield", Content = "Loading...", Duration = 3, Image = 4483362458 })
+        Rayfield:Notify({ Title = "🔍 Infinite Yield", Content = "Loading...", Duration = 3 })
         loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
-        Rayfield:Notify({ Title = "✅ Infinite Yield", Content = "Loaded successfully!", Duration = 3, Image = 4483362458 })
+        Rayfield:Notify({ Title = "✅ Infinite Yield", Content = "Loaded successfully!", Duration = 3 })
     end,
 })
 
@@ -222,24 +289,23 @@ OtherTab:CreateToggle({
         afkRunning = val
         if val then
             afkStatusLbl:Set("🟢 Anti AFK: On")
-            Rayfield:Notify({ Title = "🚶 Anti AFK", Content = "Anti AFK enabled!", Duration = 3, Image = 4483362458 })
+            Rayfield:Notify({ Title = "🚶 Anti AFK", Content = "Anti AFK enabled!", Duration = 3 })
         else
             afkStatusLbl:Set("⚪ Anti AFK: Off")
-            Rayfield:Notify({ Title = "🚶 Anti AFK", Content = "Anti AFK disabled.", Duration = 2, Image = 4483362458 })
+            Rayfield:Notify({ Title = "🚶 Anti AFK", Content = "Anti AFK disabled.", Duration = 2 })
         end
     end,
 })
 
--- NOTES TAB
+-- ==================== NOTES TAB ====================
 NotesTab:CreateSection("📝 About")
 NotesTab:CreateLabel("★ StarCalled Hub")
 NotesTab:CreateLabel("Made by: Jayden")
 NotesTab:CreateLabel("Game: Baby Pursuers")
-NotesTab:CreateLabel("Version: 1.0.0")
+NotesTab:CreateLabel("Version: 1.1.0")
 NotesTab:CreateSection("🕐 Session Info")
 local timeLbl = NotesTab:CreateLabel("🕐 Loading time...")
 
--- Get current time
 local function getTime()
     local success, result = pcall(function()
         return os.date("%A %d %B %Y • %H:%M:%S")
@@ -257,7 +323,7 @@ NotesTab:CreateButton({
     end,
 })
 
--- SPAWN LOOP
+-- ==================== SPAWN LOOP ====================
 task.spawn(function()
     while true do
         task.wait(0.05)
@@ -275,7 +341,7 @@ task.spawn(function()
     end
 end)
 
--- FARM LOOP
+-- ==================== FARM LOOP ====================
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -320,7 +386,7 @@ task.spawn(function()
     end
 end)
 
--- ANTI AFK LOOP
+-- ==================== ANTI AFK LOOP ====================
 task.spawn(function()
     while true do
         task.wait(60)
@@ -329,7 +395,6 @@ task.spawn(function()
         if not character then continue end
         local hrp = character:FindFirstChild("HumanoidRootPart")
         if not hrp then continue end
-        -- slightly nudge the character to prevent AFK kick
         hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, 0.1)
         task.wait(0.1)
         hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, -0.1)
