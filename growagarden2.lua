@@ -6,7 +6,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
-local player = Players.LocalPlayer
+local player = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local mouse = player:GetMouse()
 
 task.wait(2)
@@ -26,20 +26,375 @@ local function getHttp(url)
 
     if syn and syn.request then
         local response = syn.request({Url = url, Method = "GET"})
-        return response.Body
+        if typeof(response) == "string" then
+            return response
+        end
+        return response and response.Body
     end
 
     if http_request then
         local response = http_request({Url = url, Method = "GET"})
-        return response.Body
+        if typeof(response) == "string" then
+            return response
+        end
+        return response and response.Body
     end
 
     if request then
         local response = request({Url = url, Method = "GET"})
-        return response.Body
+        if typeof(response) == "string" then
+            return response
+        end
+        return response and response.Body
     end
 
     error("Your executor does not support HttpGet or http_request")
+end
+
+local function createFallbackRayfield()
+    local StarterGui = game:GetService("StarterGui")
+    local PlayerGui = player:WaitForChild("PlayerGui")
+
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "StarCalledHubFallback"
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = PlayerGui
+
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.new(0, 440, 0, 520)
+    mainFrame.Position = UDim2.new(0.5, -220, 0.1, 0)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+
+    local titleBar = Instance.new("Frame")
+    titleBar.Name = "TitleBar"
+    titleBar.Size = UDim2.new(1, 0, 0, 40)
+    titleBar.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    titleBar.BorderSizePixel = 0
+    titleBar.Parent = mainFrame
+
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Name = "TitleLabel"
+    titleLabel.Size = UDim2.new(1, -10, 1, 0)
+    titleLabel.Position = UDim2.new(0, 10, 0, 0)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = "Grow a Garden 2 | StarCalled Hub"
+    titleLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+    titleLabel.TextSize = 18
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = titleBar
+
+    local tabsFrame = Instance.new("Frame")
+    tabsFrame.Name = "TabsFrame"
+    tabsFrame.Size = UDim2.new(0, 120, 1, -40)
+    tabsFrame.Position = UDim2.new(0, 0, 0, 40)
+    tabsFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    tabsFrame.BorderSizePixel = 0
+    tabsFrame.Parent = mainFrame
+
+    local tabsLayout = Instance.new("UIListLayout")
+    tabsLayout.Padding = UDim.new(0, 4)
+    tabsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    tabsLayout.Parent = tabsFrame
+
+    local tabContent = Instance.new("Frame")
+    tabContent.Name = "TabContent"
+    tabContent.Size = UDim2.new(1, -120, 1, -40)
+    tabContent.Position = UDim2.new(0, 120, 0, 40)
+    tabContent.BackgroundTransparency = 1
+    tabContent.Parent = mainFrame
+
+    local selectedTab
+
+    local function createToggle(container, opts)
+        local toggleFrame = Instance.new("Frame")
+        toggleFrame.Size = UDim2.new(1, -12, 0, 34)
+        toggleFrame.BackgroundColor3 = Color3.fromRGB(36, 36, 36)
+        toggleFrame.BorderSizePixel = 0
+        toggleFrame.Parent = container
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(0.7, 0, 1, 0)
+        label.Position = UDim2.new(0, 10, 0, 0)
+        label.BackgroundTransparency = 1
+        label.Text = opts.Name
+        label.TextColor3 = Color3.fromRGB(230, 230, 230)
+        label.TextSize = 14
+        label.Font = Enum.Font.Gotham
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.Parent = toggleFrame
+
+        local button = Instance.new("TextButton")
+        button.Size = UDim2.new(0, 80, 0, 24)
+        button.Position = UDim2.new(1, -90, 0.5, -12)
+        button.BackgroundColor3 = opts.CurrentValue and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(90, 90, 90)
+        button.BorderSizePixel = 0
+        button.Text = opts.CurrentValue and "ON" or "OFF"
+        button.TextColor3 = Color3.fromRGB(240, 240, 240)
+        button.TextSize = 14
+        button.Font = Enum.Font.GothamBold
+        button.Parent = toggleFrame
+
+        local value = opts.CurrentValue or false
+
+        local function update()
+            button.Text = value and "ON" or "OFF"
+            button.BackgroundColor3 = value and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(90, 90, 90)
+        end
+
+        button.MouseButton1Click:Connect(function()
+            value = not value
+            update()
+            if opts.Callback then
+                pcall(opts.Callback, value)
+            end
+        end)
+
+        update()
+        return toggleFrame
+    end
+
+    local function createButton(container, opts)
+        local button = Instance.new("TextButton")
+        button.Size = UDim2.new(1, -12, 0, 34)
+        button.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+        button.BorderSizePixel = 0
+        button.Text = opts.Name
+        button.TextColor3 = Color3.fromRGB(240, 240, 240)
+        button.Font = Enum.Font.GothamBold
+        button.TextSize = 15
+        button.Parent = container
+
+        button.MouseButton1Click:Connect(function()
+            if opts.Callback then
+                pcall(opts.Callback)
+            end
+        end)
+
+        return button
+    end
+
+    local function createSection(container, name)
+        local sectionLabel = Instance.new("TextLabel")
+        sectionLabel.Size = UDim2.new(1, -12, 0, 24)
+        sectionLabel.BackgroundTransparency = 1
+        sectionLabel.Text = name
+        sectionLabel.TextColor3 = Color3.fromRGB(195, 195, 195)
+        sectionLabel.Font = Enum.Font.GothamSemibold
+        sectionLabel.TextSize = 15
+        sectionLabel.TextXAlignment = Enum.TextXAlignment.Left
+        sectionLabel.Parent = container
+
+        return sectionLabel
+    end
+
+    local function createDropdown(container, opts)
+        local dropFrame = Instance.new("Frame")
+        dropFrame.Size = UDim2.new(1, -12, 0, 40)
+        dropFrame.BackgroundColor3 = Color3.fromRGB(36, 36, 36)
+        dropFrame.BorderSizePixel = 0
+        dropFrame.Parent = container
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(0.5, 0, 1, 0)
+        label.Position = UDim2.new(0, 10, 0, 0)
+        label.BackgroundTransparency = 1
+        label.Text = opts.Name
+        label.TextColor3 = Color3.fromRGB(230, 230, 230)
+        label.Font = Enum.Font.Gotham
+        label.TextSize = 14
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.Parent = dropFrame
+
+        local toggle = Instance.new("TextButton")
+        toggle.Size = UDim2.new(0.45, -10, 1, 0)
+        toggle.Position = UDim2.new(0.5, 0, 0, 0)
+        toggle.BackgroundColor3 = Color3.fromRGB(90, 90, 90)
+        toggle.BorderSizePixel = 0
+        toggle.Text = "Select"
+        toggle.TextColor3 = Color3.fromRGB(240, 240, 240)
+        toggle.Font = Enum.Font.GothamBold
+        toggle.TextSize = 14
+        toggle.Parent = dropFrame
+
+        local optionsPanel = Instance.new("Frame")
+        optionsPanel.Size = UDim2.new(1, -12, 0, math.min(180, #opts.Options * 30 + 4))
+        optionsPanel.Position = UDim2.new(0, 6, 0, 44)
+        optionsPanel.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+        optionsPanel.BorderSizePixel = 0
+        optionsPanel.Visible = false
+        optionsPanel.Parent = container
+
+        local optionsLayout = Instance.new("UIListLayout")
+        optionsLayout.Padding = UDim.new(0, 2)
+        optionsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        optionsLayout.Parent = optionsPanel
+
+        local selection = {}
+        if typeof(opts.CurrentOption) == "table" then
+            for _, value in ipairs(opts.CurrentOption) do
+                selection[value] = true
+            end
+        elseif typeof(opts.CurrentOption) == "string" then
+            selection[opts.CurrentOption] = true
+        end
+
+        local function updateHeader()
+            local selected = {}
+            for value, active in pairs(selection) do
+                if active then
+                    table.insert(selected, value)
+                end
+            end
+
+            if #selected == 0 then
+                toggle.Text = "Select"
+            else
+                toggle.Text = table.concat(selected, ", ")
+            end
+        end
+
+        for _, value in ipairs(opts.Options) do
+            local itemButton = Instance.new("TextButton")
+            itemButton.Size = UDim2.new(1, -8, 0, 26)
+            itemButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+            itemButton.BorderSizePixel = 0
+            itemButton.Text = value
+            itemButton.TextColor3 = Color3.fromRGB(240, 240, 240)
+            itemButton.Font = Enum.Font.Gotham
+            itemButton.TextSize = 14
+            itemButton.Parent = optionsPanel
+
+            itemButton.MouseButton1Click:Connect(function()
+                if opts.MultipleOptions then
+                    selection[value] = not selection[value]
+                else
+                    for key in pairs(selection) do
+                        selection[key] = nil
+                    end
+
+                    selection[value] = true
+                    optionsPanel.Visible = false
+                end
+
+                local result = {}
+                for key, active in pairs(selection) do
+                    if active then
+                        table.insert(result, key)
+                    end
+                end
+
+                if opts.Callback then
+                    if opts.MultipleOptions then
+                        pcall(opts.Callback, result)
+                    else
+                        pcall(opts.Callback, result[1])
+                    end
+                end
+
+                updateHeader()
+            end)
+        end
+
+        toggle.MouseButton1Click:Connect(function()
+            optionsPanel.Visible = not optionsPanel.Visible
+        end)
+
+        updateHeader()
+        return dropFrame
+    end
+
+    local function createTab(name)
+        local tabButton = Instance.new("TextButton")
+        tabButton.Size = UDim2.new(1, -12, 0, 36)
+        tabButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        tabButton.BorderSizePixel = 0
+        tabButton.Text = name
+        tabButton.TextColor3 = Color3.fromRGB(240, 240, 240)
+        tabButton.Font = Enum.Font.GothamBold
+        tabButton.TextSize = 14
+        tabButton.Parent = tabsFrame
+
+        local tabContainer = Instance.new("ScrollingFrame")
+        tabContainer.Name = name .. "Content"
+        tabContainer.Size = UDim2.new(1, -10, 1, -10)
+        tabContainer.Position = UDim2.new(0, 5, 0, 5)
+        tabContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+        tabContainer.BackgroundTransparency = 1
+        tabContainer.BorderSizePixel = 0
+        tabContainer.ScrollBarThickness = 6
+        tabContainer.Parent = tabContent
+
+        local layout = Instance.new("UIListLayout")
+        layout.Padding = UDim.new(0, 6)
+        layout.SortOrder = Enum.SortOrder.LayoutOrder
+        layout.Parent = tabContainer
+
+        local padding = Instance.new("UIPadding")
+        padding.PaddingTop = UDim.new(0, 6)
+        padding.PaddingLeft = UDim.new(0, 6)
+        padding.PaddingRight = UDim.new(0, 6)
+        padding.Parent = tabContainer
+
+        local tab = {}
+
+        function tab:CreateSection(sectionName)
+            return createSection(tabContainer, sectionName)
+        end
+
+        function tab:CreateToggle(params)
+            return createToggle(tabContainer, params)
+        end
+
+        function tab:CreateButton(params)
+            return createButton(tabContainer, params)
+        end
+
+        function tab:CreateDropdown(params)
+            return createDropdown(tabContainer, params)
+        end
+
+        tabButton.MouseButton1Click:Connect(function()
+            if selectedTab then
+                selectedTab.Button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+                selectedTab.Container.Visible = false
+            end
+            tabButton.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+            tabContainer.Visible = true
+            selectedTab = {Button = tabButton, Container = tabContainer}
+        end)
+
+        tabContainer.Visible = false
+        if not selectedTab then
+            selectedTab = {Button = tabButton, Container = tabContainer}
+            tabButton.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+            tabContainer.Visible = true
+        end
+        return tab
+    end
+
+    local window = {}
+    function window:CreateTab(name)
+        return createTab(name)
+    end
+
+    return {
+        CreateWindow = function()
+            return window
+        end,
+        Notify = function(params)
+            pcall(function()
+                StarterGui:SetCore("SendNotification", {
+                    Title = params.Title or "StarCalled Hub",
+                    Text = params.Content or "",
+                    Duration = params.Duration or 4,
+                })
+            end)
+        end,
+    }
 end
 
 local function loadRayfield()
@@ -60,34 +415,39 @@ local function loadRayfield()
             return chunk()
         end)
 
-        local envRayfield
-        local sharedRayfield
-        local globalRayfield = _G and rawget(_G, "Rayfield") or nil
+        if ok then
+            local envRayfield
+            local sharedRayfield
+            local globalRayfield = _G and rawget(_G, "Rayfield") or nil
 
-        if getgenv then
-            envRayfield = getgenv().Rayfield
-        end
+            if getgenv then
+                envRayfield = getgenv().Rayfield
+            end
 
-        if shared then
-            sharedRayfield = shared.Rayfield
-        end
+            if shared then
+                sharedRayfield = shared.Rayfield
+            end
 
-        local candidate = ok and (resultOrErr or envRayfield or sharedRayfield or globalRayfield)
+            local candidate = resultOrErr or envRayfield or sharedRayfield or globalRayfield
 
-        if candidate and typeof(candidate) == "table" and candidate.CreateWindow then
-            Rayfield = candidate
-            print("[StarCalled GAG2] Rayfield loaded from:", url)
-            return true
+            if candidate and typeof(candidate) == "table" and candidate.CreateWindow then
+                Rayfield = candidate
+                print("[StarCalled GAG2] Rayfield loaded from:", url)
+                return true
+            end
         end
 
         warn("[StarCalled GAG2] Rayfield load failed from:", url, resultOrErr)
         task.wait(1)
     end
 
-    error("[StarCalled GAG2] Rayfield failed to load. Turn on HTTP requests / use an executor with loadstring + HttpGet support.")
+    return false
 end
 
-loadRayfield()
+if not loadRayfield() then
+    warn("[StarCalled GAG2] Remote Rayfield failed to load, using fallback UI.")
+    Rayfield = createFallbackRayfield()
+end
 
 -- ==================== CONFIG ====================
 
