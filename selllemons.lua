@@ -3,9 +3,9 @@ local player = Players.LocalPlayer
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
 local Window = Rayfield:CreateWindow({
-    Name = "★ StarCalled Hub",
-    LoadingTitle = "StarCalled Hub",
-    LoadingSubtitle = "Sell Lemons 🍋 • Auto Farm",
+    Name = "★ StarCalled Elite",
+    LoadingTitle = "StarCalled Elite",
+    LoadingSubtitle = "Sell Lemons 🍋 • Elite Auto Farm",
     ConfigurationSaving = { Enabled = false },
     Discord = { Enabled = false },
     KeySystem = false,
@@ -236,59 +236,26 @@ local function clickAllLemonsOnTrees()
 end
 
 -- ==================== FARM TAB ====================
-FarmTab:CreateSection("🎯 Tycoon Selector")
-local tycoonLbl = FarmTab:CreateLabel("🏠 Selected: Tycoon1")
-local tycoonStatusLbl = FarmTab:CreateLabel("⚪ Status: Not checked")
-local autoDetectLbl = FarmTab:CreateLabel("🔎 Auto Detect: Enabled")
+FarmTab:CreateSection("🎯 Estate Status")
+local tycoonLbl = FarmTab:CreateLabel("🏠 Estate: Searching...")
+local tycoonStatusLbl = FarmTab:CreateLabel("⚪ Status: Locating your tycoon estate")
+local autoDetectLbl = FarmTab:CreateLabel("🔎 Auto Detect: Owner-only mode")
 
-FarmTab:CreateToggle({
-    Name = "Auto Detect My Tycoon",
-    CurrentValue = autoDetectTycoon,
-    Flag = "AutoDetectTycoon",
-    Callback = function(val)
-        autoDetectTycoon = val
-        autoDetectLbl:Set(val and "🔎 Auto Detect: Enabled" or "🔎 Auto Detect: Disabled")
-        if val then
-            local tycoon = getTycoon()
-            tycoonLbl:Set("🏠 Selected: " .. getTycoonName(tycoon))
-            tycoonStatusLbl:Set(tycoon and "✅ Owner tycoon found!" or "❌ Owner tycoon not found!")
-        end
-    end,
-})
+local function refreshTycoonStatus()
+    local tycoon = getTycoon()
+    if tycoon then
+        tycoonLbl:Set("🏠 Estate: " .. getTycoonName(tycoon))
+        tycoonStatusLbl:Set("✅ Owner tycoon located")
+    else
+        tycoonLbl:Set("🏠 Estate: Unknown")
+        tycoonStatusLbl:Set("❌ Could not locate your tycoon")
+    end
+end
 
-FarmTab:CreateSlider({
-    Name = "Select Your Tycoon Number",
-    Range = {1, 12},
-    Increment = 1,
-    Suffix = "",
-    CurrentValue = 1,
-    Flag = "TycoonNum",
-    Callback = function(val)
-        selectedTycoon = val
-        tycoonLbl:Set("🏠 Selected: Tycoon" .. val)
-        local tycoon = getTycoon()
-        if tycoon then
-            tycoonStatusLbl:Set("✅ " .. getTycoonName(tycoon) .. " found!")
-        else
-            tycoonStatusLbl:Set("❌ Tycoon" .. val .. " not found!")
-        end
-    end,
-})
-
-FarmTab:CreateButton({
-    Name = "🔍 Check My Tycoon",
-    Callback = function()
-        local tycoon = getTycoon()
-        if tycoon then
-            tycoonLbl:Set("🏠 Selected: " .. getTycoonName(tycoon))
-            tycoonStatusLbl:Set("✅ " .. getTycoonName(tycoon) .. " found!")
-            Rayfield:Notify({ Title = "✅ Found!", Content = getTycoonName(tycoon) .. " exists!", Duration = 3, Image = 4483362458 })
-        else
-            tycoonStatusLbl:Set("❌ Tycoon" .. selectedTycoon .. " not found!")
-            Rayfield:Notify({ Title = "❌ Not Found", Content = "Try another number.", Duration = 4, Image = 4483362458 })
-        end
-    end,
-})
+task.spawn(function()
+    task.wait(0.5)
+    refreshTycoonStatus()
+end)
 
 FarmTab:CreateSection("🍋 Auto Click (Income)")
 local clickStatusLbl = FarmTab:CreateLabel("⚪ Auto Click: Idle")
