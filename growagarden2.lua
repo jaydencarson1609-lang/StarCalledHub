@@ -1,13 +1,24 @@
--- 🌱 Grow a Garden 2 | StarCalled Hub v7
+-- 🌱 Grow a Garden 2 | StarCalled Hub v7 (Fixed Rayfield Loader)
 -- Push to: StarCalledHub/growagarden2.lua
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 local player = Players.LocalPlayer
 
-task.wait(1) -- wait for game to settle after loader destroys previous Rayfield
+-- Wait for game to settle
+task.wait(1.5)
 
-local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+-- ==================== RAYFIELD LOADER (Updated/Verified) ====================
+local success, Rayfield = pcall(function()
+    return loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+end)
+
+if not success or not Rayfield then
+    warn("[StarCalled GAG2] Rayfield failed to load. Retrying...")
+    task.wait(1)
+    Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+end
 
 local Window = Rayfield:CreateWindow({
     Name = "🌱 Grow a Garden 2 | StarCalled Hub",
@@ -20,13 +31,13 @@ local Window = Rayfield:CreateWindow({
 
 -- ==================== STATE ====================
 local State = {
-    autoBuy          = false,
-    autoPlant        = false,
-    autoHarvest      = false,
-    autoSell         = false,
-    debug            = true,
-    selectedSeed     = "Carrot",
-    remoteEvent      = nil,
+    autoBuy = false,
+    autoPlant = false,
+    autoHarvest = false,
+    autoSell = false,
+    debug = true,
+    selectedSeed = "Carrot",
+    remoteEvent = nil,
     harvestToggleRef = nil,
 }
 
@@ -77,29 +88,26 @@ local function resolveRemote()
             end
         end
     end
-    log("Known path failed — scanning all RemoteEvents...")
+    log("Known path failed — scanning...")
     local remotes = scanForRemotes()
     if #remotes >= 1 then
         if #remotes > 1 then
-            notify("⚠️ Multiple Remotes", #remotes.." found — using first. Check console.", 8)
+            notify("⚠️ Multiple Remotes", #remotes.." found — using first.", 8)
         end
-        log("Using remote:", remotes[1]:GetFullName())
         return remotes[1]
     end
-    notify("❌ No Remote", "No RemoteEvent found in ReplicatedStorage", 8)
+    notify("❌ No Remote", "No RemoteEvent found.", 8)
     return nil
 end
 
 -- ==================== PLOT RESOLUTION ====================
 local function resolvePlotByOwner()
-    local gardensRoot = workspace:FindFirstChild("Gardens", true)
-        or workspace:FindFirstChild("Plots", true)
+    local gardensRoot = Workspace:FindFirstChild("Gardens", true) or Workspace:FindFirstChild("Plots", true)
     if not gardensRoot then return nil end
     for _, v in ipairs(gardensRoot:GetChildren()) do
         local ov = v:FindFirstChild("Owner")
         if ov then
-            if (ov:IsA("ObjectValue") and ov.Value == player)
-            or (ov:IsA("StringValue") and ov.Value == player.Name) then
+            if (ov:IsA("ObjectValue") and ov.Value == player) or (ov:IsA("StringValue") and ov.Value == player.Name) then
                 log("Plot by owner:", v.Name)
                 return v
             end
@@ -112,10 +120,8 @@ local function resolvePlotByProximity()
     local char = player.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then return nil end
-    local gardensRoot = workspace:FindFirstChild("Gardens", true)
-        or workspace:FindFirstChild("Plots", true)
-        or workspace:FindFirstChild("Farm", true)
-    if not gardensRoot then log("No Gardens/Plots/Farm folder"); return nil end
+    local gardensRoot = Workspace:FindFirstChild("Gardens", true) or Workspace:FindFirstChild("Plots", true) or Workspace:FindFirstChild("Farm", true)
+    if not gardensRoot then return nil end
     local best, bestDist = nil, math.huge
     for _, v in ipairs(gardensRoot:GetChildren()) do
         local ok, pivot = pcall(function() return v:GetPivot() end)
@@ -124,7 +130,6 @@ local function resolvePlotByProximity()
             if d < bestDist then bestDist = d; best = v end
         end
     end
-    if best then log("Closest plot:", best.Name, "dist:", math.floor(bestDist)) end
     return best
 end
 
@@ -144,8 +149,7 @@ local function equipTool(name)
     if not char then return nil end
     local hum = char:FindFirstChildOfClass("Humanoid")
     if not hum then return nil end
-    local tool = char:FindFirstChild(name)
-        or (player.Backpack and player.Backpack:FindFirstChild(name))
+    local tool = char:FindFirstChild(name) or (player.Backpack and player.Backpack:FindFirstChild(name))
     if not tool then log("No tool:", name); return nil end
     hum:EquipTool(tool)
     local deadline = os.clock() + 1.5
@@ -166,7 +170,7 @@ local function teleportAndFire(root, prompt)
     local saved = root.CFrame
     root.CFrame = CFrame.new(part.Position + Vector3.new(0, 2.5, 0))
     task.wait(0.1)
-    local ok = pcall(fireproximityprompt, prompt, prompt.HoldDuration)
+    local ok = pcall(function() fireproximityprompt(prompt, prompt.HoldDuration or 0) end)
     task.wait(0.1)
     root.CFrame = saved
     return ok
@@ -174,6 +178,7 @@ end
 
 -- ==================== GUI TABS ====================
 local MainTab = Window:CreateTab("🌱 Farm", 4483362458)
+
 MainTab:CreateSection("🌱 Auto Farm")
 
 MainTab:CreateDropdown({
@@ -257,7 +262,7 @@ DebugTab:CreateButton({
         if State.remoteEvent then
             notify("✅ Remote OK", State.remoteEvent:GetFullName(), 5)
         else
-            notify("❌ Remote Fail", "Not found — check console", 5)
+            notify("❌ Remote Fail", "Not found", 5)
         end
     end,
 })
@@ -267,7 +272,6 @@ DebugTab:CreateButton({
     Callback = function()
         local plot = getPlayerPlot()
         if plot then
-            print("[Plot]", plot:GetFullName())
             notify("✅ Plot Found", plot:GetFullName(), 5)
         else
             notify("❌ No Plot", "Check console", 5)
@@ -275,53 +279,16 @@ DebugTab:CreateButton({
     end,
 })
 
-DebugTab:CreateButton({
-    Name = "Dump Plot Prompts",
-    Callback = function()
-        local plot = getPlayerPlot()
-        if not plot then notify("❌ No Plot", "Not resolved", 4); return end
-        local count = 0
-        for _, inst in ipairs(plot:GetDescendants()) do
-            if inst:IsA("ProximityPrompt") then
-                count += 1
-                local part = getPromptPart(inst)
-                print("[Prompt]", inst:GetFullName(),
-                    "| Enabled:", inst.Enabled,
-                    "| Hold:", inst.HoldDuration,
-                    "| Action:", inst.ActionText,
-                    "| Part:", part and part.Name or "none")
-            end
-        end
-        print("[Plot] Total prompts:", count)
-        notify("🔍 Prompts", count.." found — check console", 5)
-    end,
-})
-
-DebugTab:CreateButton({
-    Name = "Dump Workspace (Top Level)",
-    Callback = function()
-        for _, v in ipairs(workspace:GetChildren()) do
-            print("[WS]", v.Name, "|", v.ClassName)
-        end
-        notify("🌲 Workspace", "Top-level dumped to console", 4)
-    end,
-})
-
-DebugTab:CreateButton({
-    Name = "Test Fire Remote (BuySeed)",
-    Callback = function()
-        local ok = fireRemote("BuySeed", State.selectedSeed)
-        notify("🔫 Fire Test", ok and "Fired — watch server" or "No remote resolved", 5)
-    end,
-})
-
--- ==================== BACKGROUND LOOPS (start after GUI is built) ====================
+-- ==================== BACKGROUND LOOPS ====================
 task.spawn(function()
     task.wait(2)
     State.remoteEvent = resolveRemote()
     if not State.remoteEvent then
-        task.wait(3)
+        task.wait(2)
         State.remoteEvent = resolveRemote()
+    end
+    if State.remoteEvent then
+        notify("✅ Remote Resolved", "Auto farm ready", 4)
     end
 end)
 
@@ -352,7 +319,6 @@ task.spawn(function()
                     end
                 end
                 fireRemote("PlantSeed", State.selectedSeed)
-                log("AutoPlant fired:", State.selectedSeed)
             end)
         end
         task.wait(1.0)
@@ -364,31 +330,30 @@ task.spawn(function()
         if State.autoHarvest then
             safeCall("AutoHarvest", function()
                 local plot = getPlayerPlot()
-                if not plot then log("AutoHarvest: no plot"); return end
+                if not plot then return end
                 local char = player.Character
                 local root = char and char:FindFirstChild("HumanoidRootPart")
                 if not root then return end
+
                 local prompts = {}
                 for _, inst in ipairs(plot:GetDescendants()) do
                     if inst:IsA("ProximityPrompt") and inst.Enabled then
                         table.insert(prompts, inst)
                     end
                 end
+
                 if #prompts == 0 then
-                    log("AutoHarvest: nothing to harvest")
                     State.autoHarvest = false
                     if State.harvestToggleRef then State.harvestToggleRef:Set(false) end
-                    notify("🌾 Done", "All harvested — toggled off", 4)
+                    notify("🌾 Done", "All harvested", 4)
                     return
                 end
+
                 local harvested = 0
                 for _, prompt in ipairs(prompts) do
                     if not State.autoHarvest then break end
-                    if prompt and prompt.Parent and prompt.Enabled then
-                        if teleportAndFire(root, prompt) then harvested += 1 end
-                    end
+                    if teleportAndFire(root, prompt) then harvested += 1 end
                 end
-                log("Harvest cycle:", harvested, "plants")
                 if harvested > 0 then notify("🌾 Harvested", harvested.." plants", 3) end
             end)
         end
@@ -401,9 +366,7 @@ task.spawn(function()
         if State.autoSell then
             safeCall("AutoSell", function()
                 fireRemote("SellAll")
-                local sellNode = workspace:FindFirstChild("SellStand", true)
-                    or workspace:FindFirstChild("Sell", true)
-                    or workspace:FindFirstChild("Market", true)
+                local sellNode = Workspace:FindFirstChild("SellStand", true) or Workspace:FindFirstChild("Sell", true) or Workspace:FindFirstChild("Market", true)
                 if sellNode then
                     local char = player.Character
                     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -415,7 +378,6 @@ task.spawn(function()
                         end
                     end
                 end
-                log("AutoSell fired")
             end)
         end
         task.wait(5.0)
@@ -423,4 +385,4 @@ task.spawn(function()
 end)
 
 -- ==================== READY ====================
-notify("🌱 GAG2 Loaded", "StarCalled Hub v7 ready — check Debug tab first", 6)
+notify("🌱 GAG2 Loaded", "StarCalled Hub v7 ready. Use Debug tab if issues.", 6)
