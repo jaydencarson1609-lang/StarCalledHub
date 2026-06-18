@@ -110,6 +110,77 @@ local function getDetectorTargetPart(detector)
     return nil
 end
 
+local function findRemoteByName(root, names)
+    local found = {}
+    if not root then
+        return found
+    end
+    for _, descendant in ipairs(root:GetDescendants()) do
+        if descendant:IsA("RemoteEvent") or descendant:IsA("RemoteFunction") then
+            for _, name in ipairs(names) do
+                if descendant.Name == name or descendant.Name:find(name) then
+                    table.insert(found, descendant)
+                    break
+                end
+            end
+        end
+    end
+    return found
+end
+
+local function getFruitRemotes(tycoon)
+    local remotes = {}
+    local core = game:GetService("ReplicatedStorage"):FindFirstChild("Core")
+    local remoteSignal = core and core:FindFirstChild("RemoteSignal")
+
+    local tycoonRemotes = tycoon and tycoon:FindFirstChild("Remotes")
+    if tycoonRemotes then
+        for _, remote in ipairs(findRemoteByName(tycoonRemotes, {"SpecialIncome", "ClickFruit"})) do
+            table.insert(remotes, remote)
+        end
+    end
+
+    if remoteSignal then
+        for _, remote in ipairs(findRemoteByName(remoteSignal, {"ClickFruitService.Clicked", "ClickFruit"})) do
+            table.insert(remotes, remote)
+        end
+    end
+
+    return remotes
+end
+
+local function fireFruitRemote(remote, targetPart)
+    if not remote then
+        return false
+    end
+
+    local args = {}
+    if remote.Name == "SpecialIncome" then
+        args = {"ClickFruit", 12.774269105149}
+    elseif remote.Name == "ClickFruitService.Clicked" then
+        local position = targetPart and targetPart.Position or Vector3.new(0, 0, 0)
+        args = {12.774269105149, position, false}
+    else
+        if targetPart then
+            args = {targetPart.Position}
+        else
+            args = {12.774269105149}
+        end
+    end
+
+    local ok = false
+    pcall(function()
+        if remote.FireServer then
+            remote:FireServer(table.unpack(args))
+            ok = true
+        elseif remote.InvokeServer then
+            remote:InvokeServer(table.unpack(args))
+            ok = true
+        end
+    end)
+    return ok
+end
+
 local function clickAllLemonsOnTrees()
     local tycoon = getTycoon()
     if not tycoon then
@@ -122,6 +193,11 @@ local function clickAllLemonsOnTrees()
     local hrp = character:FindFirstChild("HumanoidRootPart")
     local origCFrame = hrp and hrp.CFrame
     local detectors = findFruitClickDetectors(tycoon)
+    local remotes = getFruitRemotes(tycoon)
+
+    if #detectors == 0 and #remotes == 0 then
+        return 0
+    end
 
     for _, detector in ipairs(detectors) do
         local targetPart = getDetectorTargetPart(detector)
@@ -139,6 +215,17 @@ local function clickAllLemonsOnTrees()
             end
             task.wait(0.06)
         end
+    end
+
+    for _, remote in ipairs(remotes) do
+        local targetPart = nil
+        if #detectors > 0 then
+            targetPart = getDetectorTargetPart(detectors[1])
+        end
+        if fireFruitRemote(remote, targetPart) then
+            clicked += 1
+        end
+        task.wait(0.06)
     end
 
     if hrp and origCFrame then
