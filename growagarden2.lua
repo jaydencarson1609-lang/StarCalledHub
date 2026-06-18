@@ -15,6 +15,18 @@ task.wait(2)
 
 local Rayfield
 
+local function getHttp(url)
+    if game.HttpGet then
+        return game:HttpGet(url, true)
+    end
+
+    if game.HttpGetAsync then
+        return game:HttpGetAsync(url)
+    end
+
+    error("Your executor does not support game:HttpGet")
+end
+
 local function loadRayfield()
     local urls = {
         "https://sirius.menu/rayfield",
@@ -22,20 +34,40 @@ local function loadRayfield()
     }
 
     for _, url in ipairs(urls) do
-        local ok, result = pcall(function()
-            return loadstring(game:HttpGet(url, true))()
+        local ok, resultOrErr = pcall(function()
+            local source = getHttp(url)
+            assert(typeof(source) == "string" and #source > 0, "empty Rayfield source")
+
+            local chunk, compileErr = loadstring(source)
+            assert(chunk, compileErr)
+
+            return chunk()
         end)
 
-        if ok and result then
-            Rayfield = result
+        local envRayfield
+        local sharedRayfield
+
+        if getgenv then
+            envRayfield = getgenv().Rayfield
+        end
+
+        if shared then
+            sharedRayfield = shared.Rayfield
+        end
+
+        local candidate = ok and (resultOrErr or envRayfield or sharedRayfield)
+
+        if candidate and typeof(candidate) == "table" and candidate.CreateWindow then
+            Rayfield = candidate
             print("[StarCalled GAG2] Rayfield loaded from:", url)
             return true
         end
 
+        warn("[StarCalled GAG2] Rayfield load failed from:", url, resultOrErr)
         task.wait(1)
     end
 
-    error("[StarCalled GAG2] Rayfield failed to load")
+    error("[StarCalled GAG2] Rayfield failed to load. Turn on HTTP requests / use an executor with loadstring + HttpGet support.")
 end
 
 loadRayfield()
@@ -50,6 +82,7 @@ local Remotes = {
     HarvestSeed = RemoteFolder:WaitForChild("HarvestSeed"),
     SellSeed = RemoteFolder:WaitForChild("SellSeed"),
     SellAll = RemoteFolder:WaitForChild("SellAll"),
+    BuyGear = RemoteFolder:FindFirstChild("BuyGear") or RemoteFolder:FindFirstChild("BuyItem") or RemoteFolder:FindFirstChild("PurchaseGear"),
 }
 
 local seedList = {
@@ -71,14 +104,30 @@ local seedList = {
     "Beanstalk"
 }
 
+local gearList = {
+    "Watering Can",
+    "Trowel",
+    "Recall Wrench",
+    "Basic Sprinkler",
+    "Advanced Sprinkler",
+    "Godly Sprinkler",
+    "Lightning Rod",
+    "Harvest Tool",
+    "Favorite Tool"
+}
+
 local State = {
     autoBuy = false,
     autoPlant = false,
     autoHarvest = false,
     autoSell = false,
+    autoBuyGear = false,
     debug = true,
     selectedSeeds = {
         Carrot = true,
+    },
+    selectedGears = {
+        ["Watering Can"] = true,
     },
     seedIndex = 1,
     harvestToggleRef = nil,
@@ -122,6 +171,23 @@ local function selectedSeedArray()
     if #result == 0 then
         State.selectedSeeds.Carrot = true
         table.insert(result, "Carrot")
+    end
+
+    return result
+end
+
+local function selectedGearArray()
+    local result = {}
+
+    for _, gear in ipairs(gearList) do
+        if State.selectedGears[gear] then
+            table.insert(result, gear)
+        end
+    end
+
+    if #result == 0 then
+        State.selectedGears["Watering Can"] = true
+        table.insert(result, "Watering Can")
     end
 
     return result
@@ -253,6 +319,17 @@ end
 local function buySeed(seed)
     log("Buying seed:", seed)
     Remotes.BuySeed:FireServer(seed)
+end
+
+local function buyGear(gear)
+    if not Remotes.BuyGear then
+        notify("Missing BuyGear", "Add RemoteEvents.BuyGear to your game, or rename this script's fallback to your gear remote.", 6)
+        warn("[StarCalled GAG2] Missing gear remote. Expected RemoteEvents.BuyGear, BuyItem, or PurchaseGear")
+        return
+    end
+
+    log("Buying gear:", gear)
+    Remotes.BuyGear:FireServer(gear)
 end
 
 local function plantSeed(seed)
@@ -444,6 +521,68 @@ task.spawn(function()
         end,
     })
 
+    local GearTab = Window:CreateTab("Gear", 4483362458)
+
+    GearTab:CreateSection("Gear")
+
+    local gearDropdownWorked = pcall(function()
+        GearTab:CreateDropdown({
+            Name = "Gear To Buy",
+            Options = gearList,
+            CurrentOption = { "Watering Can" },
+            MultipleOptions = true,
+            Callback = function(selection)
+                State.selectedGears = {}
+
+                if typeof(selection) == "table" then
+                    for _, gear in ipairs(selection) do
+                        State.selectedGears[gear] = true
+                    end
+                elseif typeof(selection) == "string" then
+                    State.selectedGears[selection] = true
+                end
+
+                log("Updated selected gear")
+            end,
+        })
+    end)
+
+    if not gearDropdownWorked then
+        for _, gear in ipairs(gearList) do
+            GearTab:CreateToggle({
+                Name = gear,
+                CurrentValue = gear == "Watering Can",
+                Callback = function(value)
+                    State.selectedGears[gear] = value or nil
+                end,
+            })
+        end
+    end
+
+    GearTab:CreateSection("Automation")
+
+    GearTab:CreateToggle({
+        Name = "Auto Buy Selected Gear",
+        CurrentValue = false,
+        Callback = function(value)
+            State.autoBuyGear = value
+        end,
+    })
+
+    GearTab:CreateSection("Manual")
+
+    GearTab:CreateButton({
+        Name = "Buy Selected Gear Once",
+        Callback = function()
+            safeCall("BuySelectedGearOnce", function()
+                for _, gear in ipairs(selectedGearArray()) do
+                    buyGear(gear)
+                    task.wait(0.15)
+                end
+            end)
+        end,
+    })
+
     local DebugTab = Window:CreateTab("Debug", 4483362458)
 
     DebugTab:CreateToggle({
@@ -459,6 +598,15 @@ task.spawn(function()
         Callback = function()
             for _, seed in ipairs(selectedSeedArray()) do
                 log("Selected:", seed)
+            end
+        end,
+    })
+
+    DebugTab:CreateButton({
+        Name = "Print Selected Gear",
+        Callback = function()
+            for _, gear in ipairs(selectedGearArray()) do
+                log("Selected gear:", gear)
             end
         end,
     })
@@ -481,6 +629,19 @@ task.spawn(function()
                 safeCall("AutoBuy", function()
                     for _, seed in ipairs(selectedSeedArray()) do
                         buySeed(seed)
+                        task.wait(0.15)
+                    end
+                end)
+            end
+        end
+    end)
+
+    task.spawn(function()
+        while task.wait(1) do
+            if State.autoBuyGear then
+                safeCall("AutoBuyGear", function()
+                    for _, gear in ipairs(selectedGearArray()) do
+                        buyGear(gear)
                         task.wait(0.15)
                     end
                 end)
