@@ -24,7 +24,22 @@ local function getHttp(url)
         return game:HttpGetAsync(url)
     end
 
-    error("Your executor does not support game:HttpGet")
+    if syn and syn.request then
+        local response = syn.request({Url = url, Method = "GET"})
+        return response.Body
+    end
+
+    if http_request then
+        local response = http_request({Url = url, Method = "GET"})
+        return response.Body
+    end
+
+    if request then
+        local response = request({Url = url, Method = "GET"})
+        return response.Body
+    end
+
+    error("Your executor does not support HttpGet or http_request")
 end
 
 local function loadRayfield()
@@ -38,7 +53,8 @@ local function loadRayfield()
             local source = getHttp(url)
             assert(typeof(source) == "string" and #source > 0, "empty Rayfield source")
 
-            local chunk, compileErr = loadstring(source)
+            local loader = loadstring or load
+            local chunk, compileErr = loader(source)
             assert(chunk, compileErr)
 
             return chunk()
@@ -46,6 +62,7 @@ local function loadRayfield()
 
         local envRayfield
         local sharedRayfield
+        local globalRayfield = _G and rawget(_G, "Rayfield") or nil
 
         if getgenv then
             envRayfield = getgenv().Rayfield
@@ -55,7 +72,7 @@ local function loadRayfield()
             sharedRayfield = shared.Rayfield
         end
 
-        local candidate = ok and (resultOrErr or envRayfield or sharedRayfield)
+        local candidate = ok and (resultOrErr or envRayfield or sharedRayfield or globalRayfield)
 
         if candidate and typeof(candidate) == "table" and candidate.CreateWindow then
             Rayfield = candidate
