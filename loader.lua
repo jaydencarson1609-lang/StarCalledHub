@@ -23,13 +23,6 @@ local SUPPORTED_GAMES = {
             loadstring(game:HttpGet("https://raw.githubusercontent.com/jaydencarson1609-lang/StarCalledHub/main/selllemons.lua"))()
         end
     },
-    {
-        name = "Grow a Garden 2",
-        emoji = "🌱",
-        loader = function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/jaydencarson1609-lang/StarCalledHub/main/growagarden2.lua"))()
-        end
-    },
 }
 
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
@@ -65,4 +58,4 @@ end
 
 GameTab:CreateSection("📝 About")
 GameTab:CreateLabel("★ StarCalled Hub — Made by Jayden")
-GameTab:CreateLabel("GAG2 🌱 | Baby Pursuers 👶 | Lemons 🍋 | Gambling 🎰")
+GameTab:CreateLabel("Baby Pursuers 👶 | Lemons 🍋 | Gambling 🎰")
