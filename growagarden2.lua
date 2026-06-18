@@ -498,18 +498,45 @@ end
 local function findRemoteEvent(name)
     if RemoteFolder then
         local event = RemoteFolder:FindFirstChild(name)
-        if event then
+        if event and event:IsA("RemoteEvent") then
             return event
         end
     end
 
     for _, descendant in ipairs(ReplicatedStorage:GetDescendants()) do
-        if descendant.Name == name and descendant:IsA("RemoteEvent") then
-            return descendant
+        if descendant:IsA("RemoteEvent") then
+            if descendant.Name == name then
+                return descendant
+            end
+
+            local lowerName = string.lower(descendant.Name)
+            if string.find(lowerName, string.lower(name), 1, true) then
+                return descendant
+            end
         end
     end
 
     return nil
+end
+
+local function listRemoteCandidates()
+    local results = {}
+
+    if RemoteFolder then
+        for _, child in ipairs(RemoteFolder:GetChildren()) do
+            if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+                table.insert(results, string.format("%s/%s", RemoteFolder:GetFullName(), child.Name))
+            end
+        end
+    end
+
+    for _, descendant in ipairs(ReplicatedStorage:GetDescendants()) do
+        if descendant:IsA("RemoteEvent") or descendant:IsA("RemoteFunction") then
+            table.insert(results, descendant:GetFullName())
+        end
+    end
+
+    return results
 end
 
 local RemoteFolder = waitForChildWithTimeout(ReplicatedStorage, "RemoteEvents", 8) or findBestRemoteFolder()
@@ -525,6 +552,21 @@ local Remotes = {
     SellAll = findRemoteEvent("SellAll"),
     BuyGear = findRemoteEvent("BuyGear") or findRemoteEvent("BuyItem") or findRemoteEvent("PurchaseGear"),
 }
+
+local missingRemotes = {}
+for name, event in pairs(Remotes) do
+    if not event then
+        table.insert(missingRemotes, name)
+    end
+end
+
+if #missingRemotes > 0 then
+    warn("[StarCalled GAG2] Missing remote events:", table.concat(missingRemotes, ", "))
+    warn("[StarCalled GAG2] Remote candidates: ")
+    for _, path in ipairs(listRemoteCandidates()) do
+        warn("  ", path)
+    end
+end
 
 local seedList = {
     "Carrot",
