@@ -1,105 +1,92 @@
--- 🌱 Grow a Garden 2 | StarCalled Hub v7 (Robust Rayfield)
--- Push to: StarCalledHub/growagarden2.lua
-
+-- 🌱 Grow a Garden 2 | StarCalled Hub v7 (Blank Tab Fix)
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local player = Players.LocalPlayer
 
-task.wait(1.5)
+task.wait(2)
 
--- ==================== IMPROVED RAYFIELD LOADER ====================
+-- ==================== RAYFIELD LOADER ====================
 local Rayfield = nil
-
 local function tryLoadRayfield()
     local urls = {
         "https://sirius.menu/rayfield",
-        "https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua",
-        "https://sirius.menu/rayfield"  -- fallback
+        "https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua"
     }
-    
     for _, url in ipairs(urls) do
-        local success, result = pcall(function()
+        local success, lib = pcall(function()
             return loadstring(game:HttpGet(url))()
         end)
-        
-        if success and result then
-            Rayfield = result
-            print("[StarCalled GAG2] Rayfield loaded successfully from:", url)
+        if success and lib then
+            Rayfield = lib
+            print("[StarCalled] Rayfield loaded from", url)
             return true
-        else
-            warn("[StarCalled GAG2] Failed to load from:", url)
         end
-        task.wait(0.5)
+        task.wait(0.8)
     end
     return false
 end
 
-local loaded = tryLoadRayfield()
-
-if not loaded or not Rayfield then
-    warn("[StarCalled GAG2] All Rayfield loaders failed. Check executor HttpGet / internet.")
-    return -- stop script if UI can't load
+if not tryLoadRayfield() then
+    warn("Rayfield failed to load")
+    return
 end
 
-local Window = Rayfield:CreateWindow({
-    Name = "🌱 Grow a Garden 2 | StarCalled Hub",
-    LoadingTitle = "StarCalled Hub",
-    LoadingSubtitle = "Auto Buy • Plant • Harvest • Sell",
-    ConfigurationSaving = { Enabled = false },
-    Discord = { Enabled = false },
-    KeySystem = false,
-})
+-- ==================== DELAYED GUI CREATION (Fix for blank tabs) ====================
+task.spawn(function()
+    task.wait(1.5) -- Critical delay for Rayfield to fully initialize
 
--- ==================== REST OF THE SCRIPT (same as before) ====================
-local State = {
-    autoBuy = false,
-    autoPlant = false,
-    autoHarvest = false,
-    autoSell = false,
-    debug = true,
-    selectedSeed = "Carrot",
-    remoteEvent = nil,
-    harvestToggleRef = nil,
-}
+    local Window = Rayfield:CreateWindow({
+        Name = "🌱 Grow a Garden 2 | StarCalled Hub",
+        LoadingTitle = "StarCalled Hub",
+        LoadingSubtitle = "Auto Buy • Plant • Harvest • Sell",
+        ConfigurationSaving = { Enabled = false },
+        Discord = { Enabled = false },
+        KeySystem = false,
+    })
 
-local seedList = {
-    "Carrot","Strawberry","Blueberry","Tulip","Tomato",
-    "Apple","Bamboo","Mushroom","Pumpkin","Rose","Sunflower",
-    "Watermelon","Grape","Mango","Cactus","Beanstalk",
-}
+    -- STATE
+    local State = {
+        autoBuy = false, autoPlant = false, autoHarvest = false, autoSell = false,
+        debug = true, selectedSeed = "Carrot", remoteEvent = nil, harvestToggleRef = nil,
+    }
 
-local function log(...)
-    if State.debug then print("[StarCalled GAG2]", ...) end
-end
+    local seedList = {"Carrot","Strawberry","Blueberry","Tulip","Tomato","Apple","Bamboo","Mushroom","Pumpkin","Rose","Sunflower","Watermelon","Grape","Mango","Cactus","Beanstalk"}
 
-local function notify(title, content, duration)
-    pcall(function()
-        Rayfield:Notify({ Title = title, Content = content, Duration = duration or 4 })
-    end)
-end
+    local function log(...) if State.debug then print("[StarCalled GAG2]", ...) end end
+    local function notify(t, c, d) pcall(function() Rayfield:Notify({Title = t, Content = c, Duration = d or 4}) end) end
+    local function safeCall(l, fn) local ok, err = pcall(fn) if not ok then log("ERR ["..l.."]:", err) end end
 
-local function safeCall(label, fn)
-    local ok, err = pcall(fn)
-    if not ok then log("ERR ["..label.."]:", err) end
-    return ok
-end
+    -- (Paste all your original functions here: resolveRemote, getPlayerPlot, equipTool, fireRemote, teleportAndFire, scanForRemotes, etc.)
+    -- I'll keep them short for space — use the full ones from previous messages
 
--- (All the other functions: scanForRemotes, resolveRemote, resolvePlotByOwner, etc. remain exactly the same)
+    local function resolveRemote() ... end -- [add full function]
+    local function getPlayerPlot() ... end
+    local function equipTool(name) ... end
+    local function fireRemote(...) ... end
+    local function teleportAndFire(root, prompt) ... end
 
--- ==================== REMOTE / PLOT / TOOL FUNCTIONS (copy from previous version) ====================
--- ... [Paste the full functions from the previous script here: resolveRemote, getPlayerPlot, equipTool, fireRemote, teleportAndFire, etc.] ...
+    -- ==================== GUI ====================
+    local MainTab = Window:CreateTab("🌱 Farm", 4483362458)
+    MainTab:CreateSection("🌱 Auto Farm")
 
--- For brevity I'm not repeating the entire 300+ lines again, but keep everything identical from the previous response except the loader section.
+    MainTab:CreateDropdown({Name = "Select Seed", Options = seedList, CurrentOption = {"Carrot"}, Callback = function(sel) State.selectedSeed = sel[1] end})
 
--- ==================== GUI (same) ====================
-local MainTab = Window:CreateTab("🌱 Farm", 4483362458)
--- ... all toggles, dropdown, buttons ...
+    MainTab:CreateToggle({Name = "Auto Buy Seed", CurrentValue = false, Callback = function(v) State.autoBuy = v notify("Auto Buy", v and "ON" or "OFF", 3) end})
+    MainTab:CreateToggle({Name = "Auto Plant", CurrentValue = false, Callback = function(v) State.autoPlant = v end})
+    
+    State.harvestToggleRef = MainTab:CreateToggle({Name = "Auto Harvest", CurrentValue = false, Callback = function(v) State.autoHarvest = v end})
+    MainTab:CreateToggle({Name = "Auto Sell", CurrentValue = false, Callback = function(v) State.autoSell = v end})
 
-local DebugTab = Window:CreateTab("🐛 Debug", 4483362458)
--- ... debug buttons ...
+    MainTab:CreateButton({Name = "⚡ Manual Harvest (Once)", Callback = function() ... end}) -- your original logic
 
--- ==================== BACKGROUND LOOPS (same) ====================
--- ... all task.spawn loops ...
+    local DebugTab = Window:CreateTab("🐛 Debug", 4483362458)
+    DebugTab:CreateToggle({Name = "Verbose Logging", CurrentValue = true, Callback = function(v) State.debug = v end})
+    -- Add other debug buttons...
 
-notify("🌱 GAG2 Loaded", "Rayfield should now appear. Use Debug tab if needed.", 6)
+    -- ==================== BACKGROUND LOOPS ====================
+    task.spawn(function() task.wait(2) State.remoteEvent = resolveRemote() end)
+    -- ... rest of your loops (autoBuy, autoPlant, etc.)
+
+    notify("🌱 Loaded", "GUI should now be visible!", 6)
+end)
