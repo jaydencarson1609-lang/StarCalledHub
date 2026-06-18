@@ -449,17 +449,36 @@ if not loadRayfield() then
     Rayfield = createFallbackRayfield()
 end
 
+local function waitForChildWithTimeout(parent, name, timeout)
+    if not parent then
+        return nil
+    end
+
+    local start = os.clock()
+    local child = parent:FindFirstChild(name)
+
+    while not child and os.clock() - start < timeout do
+        task.wait(0.1)
+        child = parent:FindFirstChild(name)
+    end
+
+    return child
+end
+
 -- ==================== CONFIG ====================
 
-local RemoteFolder = ReplicatedStorage:WaitForChild("RemoteEvents")
+local RemoteFolder = waitForChildWithTimeout(ReplicatedStorage, "RemoteEvents", 8)
+if not RemoteFolder then
+    warn("[StarCalled GAG2] RemoteEvents folder not found in ReplicatedStorage")
+end
 
 local Remotes = {
-    BuySeed = RemoteFolder:WaitForChild("BuySeed"),
-    PlantSeed = RemoteFolder:WaitForChild("PlantSeed"),
-    HarvestSeed = RemoteFolder:WaitForChild("HarvestSeed"),
-    SellSeed = RemoteFolder:WaitForChild("SellSeed"),
-    SellAll = RemoteFolder:WaitForChild("SellAll"),
-    BuyGear = RemoteFolder:FindFirstChild("BuyGear") or RemoteFolder:FindFirstChild("BuyItem") or RemoteFolder:FindFirstChild("PurchaseGear"),
+    BuySeed = waitForChildWithTimeout(RemoteFolder, "BuySeed", 5),
+    PlantSeed = waitForChildWithTimeout(RemoteFolder, "PlantSeed", 5),
+    HarvestSeed = waitForChildWithTimeout(RemoteFolder, "HarvestSeed", 5),
+    SellSeed = waitForChildWithTimeout(RemoteFolder, "SellSeed", 5),
+    SellAll = waitForChildWithTimeout(RemoteFolder, "SellAll", 5),
+    BuyGear = (RemoteFolder and (RemoteFolder:FindFirstChild("BuyGear") or RemoteFolder:FindFirstChild("BuyItem") or RemoteFolder:FindFirstChild("PurchaseGear"))) or nil,
 }
 
 local seedList = {
@@ -753,12 +772,29 @@ local function sellAll()
     Remotes.SellAll:FireServer()
 end
 
+local function createWindow(params)
+    if Rayfield and typeof(Rayfield.CreateWindow) == "function" then
+        local ok, result = pcall(function()
+            return Rayfield:CreateWindow(params)
+        end)
+
+        if ok and result then
+            return result
+        end
+
+        warn("[StarCalled GAG2] Rayfield CreateWindow failed, switching to fallback UI.")
+    end
+
+    Rayfield = createFallbackRayfield()
+    return Rayfield:CreateWindow(params)
+end
+
 -- ==================== GUI ====================
 
 task.spawn(function()
     task.wait(2.5)
 
-    local Window = Rayfield:CreateWindow({
+    local Window = createWindow({
         Name = "Grow a Garden 2 | StarCalled Hub",
         LoadingTitle = "StarCalled Hub",
         LoadingSubtitle = "Multi Seed Auto Farm",
