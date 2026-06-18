@@ -1,12 +1,17 @@
--- Grow a Garden 2 | StarCalled Hub v8
--- Multi-seed harvest/plant/sell + stronger plant logic
+-- Grow a Garden 2 | StarCalled Hub v9
+-- For your own Roblox game
+-- Multi seed buy / plant / harvest / sell
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
+local mouse = player:GetMouse()
+
 task.wait(2)
+
+-- ==================== RAYFIELD ====================
 
 local Rayfield
 
@@ -17,13 +22,13 @@ local function loadRayfield()
     }
 
     for _, url in ipairs(urls) do
-        local success, result = pcall(function()
+        local ok, result = pcall(function()
             return loadstring(game:HttpGet(url, true))()
         end)
 
-        if success and result then
+        if ok and result then
             Rayfield = result
-            print("[StarCalled GAG2] Rayfield loaded successfully from:", url)
+            print("[StarCalled GAG2] Rayfield loaded from:", url)
             return true
         end
 
@@ -34,6 +39,18 @@ local function loadRayfield()
 end
 
 loadRayfield()
+
+-- ==================== CONFIG ====================
+
+local RemoteFolder = ReplicatedStorage:WaitForChild("RemoteEvents")
+
+local Remotes = {
+    BuySeed = RemoteFolder:WaitForChild("BuySeed"),
+    PlantSeed = RemoteFolder:WaitForChild("PlantSeed"),
+    HarvestSeed = RemoteFolder:WaitForChild("HarvestSeed"),
+    SellSeed = RemoteFolder:WaitForChild("SellSeed"),
+    SellAll = RemoteFolder:WaitForChild("SellAll"),
+}
 
 local seedList = {
     "Carrot",
@@ -60,11 +77,14 @@ local State = {
     autoHarvest = false,
     autoSell = false,
     debug = true,
-    selectedSeeds = { Carrot = true },
-    remoteEvent = nil,
-    harvestToggleRef = nil,
+    selectedSeeds = {
+        Carrot = true,
+    },
     seedIndex = 1,
+    harvestToggleRef = nil,
 }
+
+-- ==================== HELPERS ====================
 
 local function log(...)
     if State.debug then
@@ -82,8 +102,9 @@ local function notify(title, content, duration)
     end)
 end
 
-local function safeCall(label, fn)
-    local ok, err = pcall(fn)
+local function safeCall(label, callback)
+    local ok, err = pcall(callback)
+
     if not ok then
         warn("[StarCalled GAG2]", label, err)
     end
@@ -131,61 +152,11 @@ local function textHasSelectedSeed(text)
     return false
 end
 
-local function instanceHasSelectedSeed(instance)
-    local node = instance
-
-    while node do
-        if textHasSelectedSeed(node.Name) then
-            return true
-        end
-
-        for _, attrName in ipairs({ "Seed", "SeedName", "Plant", "PlantName", "Crop", "CropName", "Fruit", "FruitName" }) do
-            local attr = node:GetAttribute(attrName)
-            if attr and textHasSelectedSeed(tostring(attr)) then
-                return true
-            end
-        end
-
-        node = node.Parent
-    end
-
-    return false
-end
-
-local function scanForRemotes()
-    local found = {}
-
-    for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
-        if v:IsA("RemoteEvent") then
-            table.insert(found, v)
-        end
-    end
-
-    return found
-end
-
-local function resolveRemote()
-    local sharedModules = ReplicatedStorage:FindFirstChild("SharedModules")
-
-    if sharedModules then
-        local packet = sharedModules:FindFirstChild("Packet")
-        if packet then
-            local remote = packet:FindFirstChild("RemoteEvent")
-            if remote and remote:IsA("RemoteEvent") then
-                return remote
-            end
-        end
-    end
-
-    local remotes = scanForRemotes()
-    return remotes[1]
-end
-
 local function getCharacter()
     return player.Character or player.CharacterAdded:Wait()
 end
 
-local function getCharacterRoot()
+local function getRoot()
     local character = getCharacter()
     return character:FindFirstChild("HumanoidRootPart")
 end
@@ -195,109 +166,42 @@ local function getHumanoid()
     return character:FindFirstChildOfClass("Humanoid")
 end
 
-local function resolvePlotByOwner()
-    local gardensRoot =
-        Workspace:FindFirstChild("Gardens", true)
-        or Workspace:FindFirstChild("Plots", true)
-        or Workspace:FindFirstChild("Farm", true)
-
-    if not gardensRoot then
-        return nil
-    end
-
-    for _, plot in ipairs(gardensRoot:GetChildren()) do
-        local owner = plot:FindFirstChild("Owner")
-
-        if owner then
-            if owner:IsA("ObjectValue") and owner.Value == player then
-                return plot
-            end
-
-            if owner:IsA("StringValue") and owner.Value == player.Name then
-                return plot
-            end
-        end
-    end
-
-    return nil
-end
-
-local function resolvePlotByProximity()
-    local root = getCharacterRoot()
-    if not root then
-        return nil
-    end
-
-    local gardensRoot =
-        Workspace:FindFirstChild("Gardens", true)
-        or Workspace:FindFirstChild("Plots", true)
-        or Workspace:FindFirstChild("Farm", true)
-
-    if not gardensRoot then
-        return nil
-    end
-
-    local bestPlot = nil
-    local bestDistance = math.huge
-
-    for _, plot in ipairs(gardensRoot:GetChildren()) do
-        local ok, pivot = pcall(function()
-            return plot:GetPivot()
-        end)
-
-        if ok and pivot then
-            local distance = (root.Position - pivot.Position).Magnitude
-
-            if distance < bestDistance then
-                bestDistance = distance
-                bestPlot = plot
-            end
-        end
-    end
-
-    return bestPlot
-end
-
-local function getPlayerPlot()
-    return resolvePlotByOwner() or resolvePlotByProximity()
-end
-
-local function getPromptPart(prompt)
-    local node = prompt.Parent
-
-    while node and not node:IsA("BasePart") do
-        node = node.Parent
-    end
-
-    return node
-end
-
 local function getBackpack()
     return player:FindFirstChild("Backpack")
+end
+
+local function getMousePosition()
+    if mouse and mouse.Hit then
+        return mouse.Hit.Position
+    end
+
+    local root = getRoot()
+
+    if root then
+        return root.Position + root.CFrame.LookVector * 6
+    end
+
+    return Vector3.new(0, 5, 0)
 end
 
 local function findToolMatching(seed)
     local character = getCharacter()
     local backpack = getBackpack()
 
-    local patterns = {
-        seed,
-        seed .. " Seed",
-        "[" .. seed .. "]",
+    local containers = {
+        character,
+        backpack,
     }
-
-    local containers = { character, backpack }
 
     for _, container in ipairs(containers) do
         if container then
             for _, tool in ipairs(container:GetChildren()) do
                 if tool:IsA("Tool") then
                     local toolName = string.lower(tool.Name)
+                    local seedName = string.lower(seed)
 
-                    for _, pattern in ipairs(patterns) do
-                        if string.find(toolName, string.lower(pattern), 1, true) then
-                            return tool
-                        end
+                    if string.find(toolName, seedName, 1, true) then
+                        return tool
                     end
                 end
             end
@@ -307,7 +211,7 @@ local function findToolMatching(seed)
     return nil
 end
 
-local function equipToolMatching(seed)
+local function equipSeedTool(seed)
     local humanoid = getHumanoid()
     local tool = findToolMatching(seed)
 
@@ -321,242 +225,81 @@ local function equipToolMatching(seed)
     return getCharacter():FindFirstChildOfClass("Tool")
 end
 
-local function fireRemote(...)
-    if not State.remoteEvent then
-        State.remoteEvent = resolveRemote()
-    end
-
-    if not State.remoteEvent then
-        return false
-    end
-
-    local args = { ... }
-
-    local ok = pcall(function()
-        State.remoteEvent:FireServer(unpack(args))
-    end)
-
-    return ok
-end
-
-local function teleportAndFire(root, prompt)
-    if not root or not prompt then
-        return false
-    end
-
-    local part = getPromptPart(prompt)
-    if not part then
-        return false
-    end
-
-    local saved = root.CFrame
-
-    root.CFrame = CFrame.new(part.Position + Vector3.new(0, 3, 0))
-    task.wait(0.15)
-
-    pcall(function()
-        fireproximityprompt(prompt, prompt.HoldDuration or 0)
-    end)
-
-    task.wait(0.15)
-    root.CFrame = saved
-
-    return true
-end
-
-local function findPromptsMatching(rootInstance, keywords)
-    local prompts = {}
-
-    for _, item in ipairs(rootInstance:GetDescendants()) do
-        if item:IsA("ProximityPrompt") then
-            local text = string.lower((item.ActionText or "") .. " " .. (item.ObjectText or "") .. " " .. item.Name)
-
-            for _, keyword in ipairs(keywords) do
-                if string.find(text, string.lower(keyword), 1, true) then
-                    table.insert(prompts, item)
-                    break
-                end
-            end
-        end
-    end
-
-    return prompts
-end
-
-local function findPlantPosition(plot)
-    local root = getCharacterRoot()
-
-    local preferredNames = {
-        "Plant",
-        "Soil",
-        "Dirt",
-        "Plot",
-        "Garden",
-        "Farm",
-        "Ground"
-    }
-
-    for _, item in ipairs(plot:GetDescendants()) do
-        if item:IsA("BasePart") then
-            local lowerName = string.lower(item.Name)
-
-            for _, name in ipairs(preferredNames) do
-                if string.find(lowerName, string.lower(name), 1, true) then
-                    return item.Position + Vector3.new(0, 2, 0)
-                end
-            end
-        end
-    end
-
-    local ok, pivot = pcall(function()
-        return plot:GetPivot()
-    end)
-
-    if ok and pivot then
-        return pivot.Position + Vector3.new(0, 2, 0)
-    end
-
-    if root then
-        return root.Position + root.CFrame.LookVector * 5
-    end
-
-    return Vector3.new(0, 5, 0)
-end
-
-local function buySeedOnce(seed)
-    fireRemote("BuySeed", seed)
-    fireRemote("Buy", seed)
-    fireRemote("PurchaseSeed", seed)
-    fireRemote("SeedShop", seed)
-end
-
-local function plantSeedOnce(seed)
-    local plot = getPlayerPlot()
-    local root = getCharacterRoot()
-
-    if not plot or not root then
-        log("No plot/root found for planting")
-        return
-    end
-
-    local equipped = equipToolMatching(seed)
-
-    if not equipped then
-        log("Could not equip seed tool:", seed)
-    end
-
-    local position = findPlantPosition(plot)
-    root.CFrame = CFrame.new(position + Vector3.new(0, 2, 0))
-    task.wait(0.2)
-
-    fireRemote("Plant", seed, position)
-    fireRemote("PlantSeed", seed, position)
-    fireRemote("PlaceSeed", seed, position)
-    fireRemote("CreatePlant", seed, position)
-    fireRemote("Plant", position, seed)
-    fireRemote("PlantSeed", position, seed)
-
-    local plantPrompts = findPromptsMatching(plot, {
-        "plant",
-        "place",
-        "seed"
-    })
-
-    for _, prompt in ipairs(plantPrompts) do
-        if not State.autoPlant then
-            break
-        end
-
-        teleportAndFire(root, prompt)
-        task.wait(0.25)
-    end
-end
-
-local function harvestOnce()
-    local plot = getPlayerPlot()
-    local root = getCharacterRoot()
-
-    if not plot or not root then
-        log("No plot/root found for harvesting")
-        return
-    end
-
-    local harvestPrompts = findPromptsMatching(plot, {
-        "harvest",
-        "collect",
-        "pick"
-    })
-
-    local harvested = 0
-
-    for _, prompt in ipairs(harvestPrompts) do
-        if not State.autoHarvest then
-            break
-        end
-
-        local promptText = (prompt.ActionText or "") .. " " .. (prompt.ObjectText or "") .. " " .. prompt.Name
-        local matched = textHasSelectedSeed(promptText) or instanceHasSelectedSeed(prompt)
-
-        if matched then
-            if teleportAndFire(root, prompt) then
-                harvested += 1
-            end
-
-            task.wait(0.2)
-        end
-    end
-
-    for seed in pairs(State.selectedSeeds) do
-        fireRemote("Harvest", seed)
-        fireRemote("Collect", seed)
-        fireRemote("HarvestPlant", seed)
-        fireRemote("CollectPlant", seed)
-    end
-
-    log("Harvest attempt finished. Prompt count:", harvested)
-end
-
-local function sellSelectedOnce()
+local function findSelectedCropTools()
+    local tools = {}
     local character = getCharacter()
     local backpack = getBackpack()
-    local humanoid = getHumanoid()
 
-    if not humanoid then
-        return
-    end
-
-    local soldAny = false
-    local containers = { backpack, character }
+    local containers = {
+        character,
+        backpack,
+    }
 
     for _, container in ipairs(containers) do
         if container then
-            for _, tool in ipairs(container:GetChildren()) do
-                if tool:IsA("Tool") and textHasSelectedSeed(tool.Name) then
-                    humanoid:EquipTool(tool)
-                    task.wait(0.15)
-
-                    fireRemote("SellItem", tool.Name)
-                    fireRemote("SellCrop", tool.Name)
-                    fireRemote("Sell", tool.Name)
-                    fireRemote("SellInventoryItem", tool.Name)
-
-                    soldAny = true
-                    task.wait(0.2)
+            for _, item in ipairs(container:GetChildren()) do
+                if item:IsA("Tool") and textHasSelectedSeed(item.Name) then
+                    table.insert(tools, item)
                 end
             end
         end
     end
 
-    for seed in pairs(State.selectedSeeds) do
-        fireRemote("SellItem", seed)
-        fireRemote("SellCrop", seed)
-        fireRemote("Sell", seed)
+    return tools
+end
+
+-- ==================== GAME ACTIONS ====================
+
+local function buySeed(seed)
+    log("Buying seed:", seed)
+    Remotes.BuySeed:FireServer(seed)
+end
+
+local function plantSeed(seed)
+    local position = getMousePosition()
+
+    log("Planting seed:", seed, position)
+
+    equipSeedTool(seed)
+
+    Remotes.PlantSeed:FireServer(seed, position)
+end
+
+local function harvestSeed(seed)
+    log("Harvesting seed:", seed)
+    Remotes.HarvestSeed:FireServer(seed)
+end
+
+local function sellSeed(seed)
+    log("Selling seed/crop:", seed)
+    Remotes.SellSeed:FireServer(seed)
+end
+
+local function sellSelectedTools()
+    local humanoid = getHumanoid()
+    local tools = findSelectedCropTools()
+
+    for _, tool in ipairs(tools) do
+        if humanoid then
+            humanoid:EquipTool(tool)
+            task.wait(0.1)
+        end
+
+        Remotes.SellSeed:FireServer(tool.Name)
+        task.wait(0.15)
     end
 
-    if not soldAny then
-        log("No selected crop tools found to sell")
+    for _, seed in ipairs(selectedSeedArray()) do
+        sellSeed(seed)
+        task.wait(0.1)
     end
 end
+
+local function sellAll()
+    Remotes.SellAll:FireServer()
+end
+
+-- ==================== GUI ====================
 
 task.spawn(function()
     task.wait(2.5)
@@ -565,19 +308,23 @@ task.spawn(function()
         Name = "Grow a Garden 2 | StarCalled Hub",
         LoadingTitle = "StarCalled Hub",
         LoadingSubtitle = "Multi Seed Auto Farm",
+
         ConfigurationSaving = {
             Enabled = false,
         },
+
         Discord = {
             Enabled = false,
         },
+
         KeySystem = false,
     })
 
     local MainTab = Window:CreateTab("Farm", 4483362458)
-    MainTab:CreateSection("Selected Seeds")
 
-    local multiDropdownOk = pcall(function()
+    MainTab:CreateSection("Seeds")
+
+    local dropdownWorked = pcall(function()
         MainTab:CreateDropdown({
             Name = "Seeds To Use",
             Options = seedList,
@@ -594,14 +341,12 @@ task.spawn(function()
                     State.selectedSeeds[selection] = true
                 end
 
-                log("Selected seeds updated")
+                log("Updated selected seeds")
             end,
         })
     end)
 
-    if not multiDropdownOk then
-        MainTab:CreateSection("Seed Toggles")
-
+    if not dropdownWorked then
         for _, seed in ipairs(seedList) do
             MainTab:CreateToggle({
                 Name = seed,
@@ -613,7 +358,7 @@ task.spawn(function()
         end
     end
 
-    MainTab:CreateSection("Auto Farm")
+    MainTab:CreateSection("Automation")
 
     MainTab:CreateToggle({
         Name = "Auto Buy Selected Seeds",
@@ -647,30 +392,55 @@ task.spawn(function()
         end,
     })
 
-    MainTab:CreateButton({
-        Name = "Manual Harvest Selected",
-        Callback = function()
-            safeCall("ManualHarvest", function()
-                State.autoHarvest = true
-                harvestOnce()
-                State.autoHarvest = false
+    MainTab:CreateSection("Manual")
 
-                if State.harvestToggleRef then
-                    State.harvestToggleRef:Set(false)
+    MainTab:CreateButton({
+        Name = "Buy Selected Once",
+        Callback = function()
+            safeCall("BuySelectedOnce", function()
+                for _, seed in ipairs(selectedSeedArray()) do
+                    buySeed(seed)
+                    task.wait(0.15)
                 end
             end)
         end,
     })
 
     MainTab:CreateButton({
-        Name = "Manual Plant Selected",
+        Name = "Plant Selected Once",
         Callback = function()
-            safeCall("ManualPlant", function()
+            safeCall("PlantSelectedOnce", function()
                 for _, seed in ipairs(selectedSeedArray()) do
-                    plantSeedOnce(seed)
-                    task.wait(0.5)
+                    plantSeed(seed)
+                    task.wait(0.4)
                 end
             end)
+        end,
+    })
+
+    MainTab:CreateButton({
+        Name = "Harvest Selected Once",
+        Callback = function()
+            safeCall("HarvestSelectedOnce", function()
+                for _, seed in ipairs(selectedSeedArray()) do
+                    harvestSeed(seed)
+                    task.wait(0.2)
+                end
+            end)
+        end,
+    })
+
+    MainTab:CreateButton({
+        Name = "Sell Selected Once",
+        Callback = function()
+            safeCall("SellSelectedOnce", sellSelectedTools)
+        end,
+    })
+
+    MainTab:CreateButton({
+        Name = "Sell All",
+        Callback = function()
+            safeCall("SellAll", sellAll)
         end,
     })
 
@@ -685,20 +455,6 @@ task.spawn(function()
     })
 
     DebugTab:CreateButton({
-        Name = "Rescan Remote",
-        Callback = function()
-            State.remoteEvent = resolveRemote()
-
-            if State.remoteEvent then
-                notify("Remote OK", State.remoteEvent:GetFullName(), 5)
-                log("Remote:", State.remoteEvent:GetFullName())
-            else
-                notify("Remote Missing", "No RemoteEvent found", 5)
-            end
-        end,
-    })
-
-    DebugTab:CreateButton({
         Name = "Print Selected Seeds",
         Callback = function()
             for _, seed in ipairs(selectedSeedArray()) do
@@ -708,38 +464,23 @@ task.spawn(function()
     })
 
     DebugTab:CreateButton({
-        Name = "Print Plot",
+        Name = "Test Plant Current Mouse Position",
         Callback = function()
-            local plot = getPlayerPlot()
-
-            if plot then
-                notify("Plot Found", plot:GetFullName(), 5)
-                log("Plot:", plot:GetFullName())
-            else
-                notify("Plot Missing", "Could not find your plot", 5)
-            end
+            safeCall("TestPlant", function()
+                local seed = nextSelectedSeed()
+                plantSeed(seed)
+            end)
         end,
     })
 
-    task.spawn(function()
-        task.wait(2)
-        State.remoteEvent = resolveRemote()
-
-        if State.remoteEvent then
-            notify("Remote OK", "Auto farm ready", 5)
-            log("Remote resolved:", State.remoteEvent:GetFullName())
-        else
-            notify("Remote Missing", "Some actions may not work", 5)
-            log("No RemoteEvent found")
-        end
-    end)
+    -- ==================== LOOPS ====================
 
     task.spawn(function()
-        while task.wait(0.5) do
+        while task.wait(0.6) do
             if State.autoBuy then
                 safeCall("AutoBuy", function()
                     for _, seed in ipairs(selectedSeedArray()) do
-                        buySeedOnce(seed)
+                        buySeed(seed)
                         task.wait(0.15)
                     end
                 end)
@@ -751,7 +492,8 @@ task.spawn(function()
         while task.wait(1.2) do
             if State.autoPlant then
                 safeCall("AutoPlant", function()
-                    plantSeedOnce(nextSelectedSeed())
+                    local seed = nextSelectedSeed()
+                    plantSeed(seed)
                 end)
             end
         end
@@ -760,7 +502,12 @@ task.spawn(function()
     task.spawn(function()
         while task.wait(0.8) do
             if State.autoHarvest then
-                safeCall("AutoHarvest", harvestOnce)
+                safeCall("AutoHarvest", function()
+                    for _, seed in ipairs(selectedSeedArray()) do
+                        harvestSeed(seed)
+                        task.wait(0.15)
+                    end
+                end)
             end
         end
     end)
@@ -768,10 +515,10 @@ task.spawn(function()
     task.spawn(function()
         while task.wait(5) do
             if State.autoSell then
-                safeCall("AutoSell", sellSelectedOnce)
+                safeCall("AutoSell", sellSelectedTools)
             end
         end
     end)
 
-    notify("GAG2 Loaded", "Multi-seed farming ready", 6)
+    notify("GAG2 Loaded", "Multi-seed farm ready", 6)
 end)
