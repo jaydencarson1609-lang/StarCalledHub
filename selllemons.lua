@@ -18,6 +18,7 @@ local OtherTab = Window:CreateTab("🛠 Others", 4483362458)
 local NotesTab = Window:CreateTab("📝 Notes", 4483362458)
 
 local selectedTycoon = 1
+local autoDetectTycoon = true
 local autoClickRunning = false
 local autoUpgradeRunning = false
 local autoRebirthRunning = false
@@ -31,10 +32,7 @@ local clickCount = 0
 local upgradeCount = 0
 local rebirthCount = 0
 
-local function getTycoon()
-    local tycoon = workspace:FindFirstChild("Tycoon" .. selectedTycoon)
-    if tycoon then return tycoon end
-
+local function getOwnerTycoon()
     for _, v in ipairs(workspace:GetChildren()) do
         if v.Name:match("^Tycoon%d+$") and v:FindFirstChild("Owner") and v.Owner.Value == player then
             return v
@@ -43,7 +41,50 @@ local function getTycoon()
     return nil
 end
 
--- FIXED Lemon Clicker: teleports to each fruit and fires the click detector with a valid distance
+local function getTycoon()
+    if autoDetectTycoon then
+        local ownerTycoon = getOwnerTycoon()
+        if ownerTycoon then
+            selectedTycoon = tonumber(ownerTycoon.Name:match("^Tycoon(%d+)$")) or selectedTycoon
+            return ownerTycoon
+        end
+    end
+
+    return workspace:FindFirstChild("Tycoon" .. selectedTycoon)
+end
+
+local function getTycoonName(tycoon)
+    return tycoon and tycoon.Name or ("Tycoon" .. selectedTycoon)
+end
+
+local function findFruitClickDetectors(tycoon)
+    local detectors = {}
+    for _, desc in ipairs(tycoon:GetDescendants()) do
+        if desc:IsA("ClickDetector") then
+            local parent = desc.Parent
+            if parent and parent:IsA("BasePart") then
+                local name = string.lower(parent.Name)
+                local valid = name:find("fruit") or name:find("lemon") or name:find("click") or name:find("tree")
+                if not valid then
+                    local ancestor = parent.Parent
+                    while ancestor and ancestor ~= tycoon do
+                        local aname = string.lower(ancestor.Name)
+                        if aname:find("fruit") or aname:find("lemon") or aname:find("tree") then
+                            valid = true
+                            break
+                        end
+                        ancestor = ancestor.Parent
+                    end
+                end
+                if valid then
+                    table.insert(detectors, desc)
+                end
+            end
+        end
+    end
+    return detectors
+end
+
 local function clickAllLemonsOnTrees()
     local tycoon = getTycoon()
     if not tycoon then
@@ -52,33 +93,29 @@ local function clickAllLemonsOnTrees()
     end
 
     local clicked = 0
-    local character = player.Character
-    local hrp = character and character:FindFirstChild("HumanoidRootPart")
+    local character = player.Character or player.CharacterAdded:Wait()
+    local hrp = character:FindFirstChild("HumanoidRootPart")
     local origCFrame = hrp and hrp.CFrame
+    local detectors = findFruitClickDetectors(tycoon)
 
-    for _, fruit in ipairs(tycoon:GetDescendants()) do
-        if fruit.Name == "Fruit" and fruit:IsA("Model") then
-            local clickPart = fruit:FindFirstChild("ClickPart")
-            if clickPart then
-                local detector = clickPart:FindFirstChildOfClass("ClickDetector")
-                if detector then
-                    if hrp then
-                        hrp.CFrame = CFrame.new(clickPart.Position + Vector3.new(0, 2, 0))
-                        task.wait(0.05)
-                    end
-
-                    local ok = pcall(function()
-                        fireclickdetector(detector, detector.MaxActivationDistance or 32)
-                    end)
-                    if ok then
-                        clicked += 1
-                    end
-                end
+    for _, detector in ipairs(detectors) do
+        local clickPart = detector.Parent
+        if clickPart and clickPart:IsA("BasePart") then
+            if hrp then
+                hrp.CFrame = CFrame.new(clickPart.Position + Vector3.new(0, 2, 0))
+                task.wait(0.05)
             end
+
+            local ok = pcall(function()
+                fireclickdetector(detector, detector.MaxActivationDistance or 32)
+            end)
+            if ok then
+                clicked += 1
+            end
+            task.wait(0.06)
         end
     end
 
-    -- Restore original position after farming
     if hrp and origCFrame then
         hrp.CFrame = origCFrame
     end
@@ -90,6 +127,22 @@ end
 FarmTab:CreateSection("🎯 Tycoon Selector")
 local tycoonLbl = FarmTab:CreateLabel("🏠 Selected: Tycoon1")
 local tycoonStatusLbl = FarmTab:CreateLabel("⚪ Status: Not checked")
+local autoDetectLbl = FarmTab:CreateLabel("🔎 Auto Detect: Enabled")
+
+FarmTab:CreateToggle({
+    Name = "Auto Detect My Tycoon",
+    CurrentValue = autoDetectTycoon,
+    Flag = "AutoDetectTycoon",
+    Callback = function(val)
+        autoDetectTycoon = val
+        autoDetectLbl:Set(val and "🔎 Auto Detect: Enabled" or "🔎 Auto Detect: Disabled")
+        if val then
+            local tycoon = getTycoon()
+            tycoonLbl:Set("🏠 Selected: " .. getTycoonName(tycoon))
+            tycoonStatusLbl:Set(tycoon and "✅ Owner tycoon found!" or "❌ Owner tycoon not found!")
+        end
+    end,
+})
 
 FarmTab:CreateSlider({
     Name = "Select Your Tycoon Number",
@@ -102,7 +155,11 @@ FarmTab:CreateSlider({
         selectedTycoon = val
         tycoonLbl:Set("🏠 Selected: Tycoon" .. val)
         local tycoon = getTycoon()
-        tycoonStatusLbl:Set(tycoon and ("✅ Tycoon" .. val .. " found!") or ("❌ Tycoon" .. val .. " not found!"))
+        if tycoon then
+            tycoonStatusLbl:Set("✅ " .. getTycoonName(tycoon) .. " found!")
+        else
+            tycoonStatusLbl:Set("❌ Tycoon" .. val .. " not found!")
+        end
     end,
 })
 
@@ -111,8 +168,9 @@ FarmTab:CreateButton({
     Callback = function()
         local tycoon = getTycoon()
         if tycoon then
-            tycoonStatusLbl:Set("✅ Tycoon" .. selectedTycoon .. " found!")
-            Rayfield:Notify({ Title = "✅ Found!", Content = "Tycoon" .. selectedTycoon .. " exists!", Duration = 3, Image = 4483362458 })
+            tycoonLbl:Set("🏠 Selected: " .. getTycoonName(tycoon))
+            tycoonStatusLbl:Set("✅ " .. getTycoonName(tycoon) .. " found!")
+            Rayfield:Notify({ Title = "✅ Found!", Content = getTycoonName(tycoon) .. " exists!", Duration = 3, Image = 4483362458 })
         else
             tycoonStatusLbl:Set("❌ Tycoon" .. selectedTycoon .. " not found!")
             Rayfield:Notify({ Title = "❌ Not Found", Content = "Try another number.", Duration = 4, Image = 4483362458 })
