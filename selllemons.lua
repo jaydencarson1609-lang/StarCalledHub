@@ -62,14 +62,14 @@ local function findFruitClickDetectors(tycoon)
     for _, desc in ipairs(tycoon:GetDescendants()) do
         if desc:IsA("ClickDetector") then
             local parent = desc.Parent
-            if parent and parent:IsA("BasePart") then
+            if parent then
                 local name = string.lower(parent.Name)
                 local valid = name:find("fruit") or name:find("lemon") or name:find("click") or name:find("tree")
                 if not valid then
                     local ancestor = parent.Parent
                     while ancestor and ancestor ~= tycoon do
                         local aname = string.lower(ancestor.Name)
-                        if aname:find("fruit") or aname:find("lemon") or aname:find("tree") then
+                        if aname:find("fruit") or aname:find("lemon") or aname:find("tree") or aname:find("click") then
                             valid = true
                             break
                         end
@@ -83,6 +83,31 @@ local function findFruitClickDetectors(tycoon)
         end
     end
     return detectors
+end
+
+local function getDetectorTargetPart(detector)
+    local parent = detector.Parent
+    if parent then
+        if parent:IsA("BasePart") then
+            return parent
+        end
+        if parent:IsA("Model") then
+            if parent.PrimaryPart then
+                return parent.PrimaryPart
+            end
+            for _, descendant in ipairs(parent:GetDescendants()) do
+                if descendant:IsA("BasePart") then
+                    return descendant
+                end
+            end
+        end
+        for _, descendant in ipairs(parent:GetDescendants()) do
+            if descendant:IsA("BasePart") then
+                return descendant
+            end
+        end
+    end
+    return nil
 end
 
 local function clickAllLemonsOnTrees()
@@ -99,15 +124,15 @@ local function clickAllLemonsOnTrees()
     local detectors = findFruitClickDetectors(tycoon)
 
     for _, detector in ipairs(detectors) do
-        local clickPart = detector.Parent
-        if clickPart and clickPart:IsA("BasePart") then
+        local targetPart = getDetectorTargetPart(detector)
+        if targetPart then
             if hrp then
-                hrp.CFrame = CFrame.new(clickPart.Position + Vector3.new(0, 2, 0))
+                hrp.CFrame = CFrame.new(targetPart.Position + Vector3.new(0, 2, 0))
                 task.wait(0.05)
             end
 
             local ok = pcall(function()
-                fireclickdetector(detector, detector.MaxActivationDistance or 32)
+                fireclickdetector(detector)
             end)
             if ok then
                 clicked += 1
