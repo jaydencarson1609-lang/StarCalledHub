@@ -17,10 +17,10 @@ local SUPPORTED_GAMES = {
         end
     },
     {
-        name = "Broken Bones",
-        emoji = "🦴",
+        name = "Build Anything! [🛠️]",
+        emoji = "🛠️",
         loader = function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/jaydencarson1609-lang/StarCalledHub/main/brokenbones.lua"))()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/jaydencarson1609-lang/StarCalledHub/main/buildanything.lua"))() -- Will be your script
         end
     },
 }
@@ -49,11 +49,9 @@ for _, gameEntry in ipairs(SUPPORTED_GAMES) do
                 Content = "Loading " .. gameEntry.name .. "...",
                 Duration = 3
             })
-
             task.wait(1.5)
             Rayfield:Destroy()
             task.wait(0.3)
-
             gameEntry.loader()
         end,
     })
@@ -61,4 +59,4 @@ end
 
 GameTab:CreateSection("📝 About")
 GameTab:CreateLabel("★ StarCalled Hub — Made by Jayden")
-GameTab:CreateLabel("Baby Pursuers 👶 | Gambling 🎰 | Broken Bones 🦴")
+GameTab:CreateLabel("Baby Pursuers 👶 | Gambling 🎰 | Build Anything! 🛠️")
