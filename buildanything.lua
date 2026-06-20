@@ -13,9 +13,8 @@ local Window = Rayfield:CreateWindow({
 
 -- ==================== MAIN TAB ====================
 local MainTab = Window:CreateTab("🛠️ Main", 4483362458)
-
 MainTab:CreateSection("Build System")
-MainTab:CreateLabel("Main building tools will be added here.")
+MainTab:CreateLabel("Main building tools coming soon...")
 
 -- ==================== TROLLS TAB ====================
 local TrollsTab = Window:CreateTab("😈 Trolls", 4483362458)
@@ -68,7 +67,7 @@ TrollsTab:CreateButton({
 
         local count = 0
         for _, block in ipairs(targetFolder:GetDescendants()) do
-            if block:IsA("BasePart") then
+            if block:IsA("BasePart") or block:IsA("Model") then
                 pcall(function()
                     local nilObj = GetNil(block.Name, block:GetDebugId())
                     if nilObj then
@@ -76,11 +75,52 @@ TrollsTab:CreateButton({
                         count += 1
                     end
                 end)
-                task.wait(0.03)
+                task.wait(0.08) -- Increased delay for reliability
             end
         end
 
         Rayfield:Notify({Title = "✅ Troll Complete", Content = "Deleted " .. count .. " blocks from " .. username, Duration = 5})
+    end,
+})
+
+TrollsTab:CreateButton({
+    Name = "🌍 Delete EVERYONE's Builds",
+    Callback = function()
+        Rayfield:Notify({Title = "☢️ Mass Troll", Content = "Deleting ALL builds in server...", Duration = 4})
+
+        local Built = workspace:FindFirstChild("Built")
+        if not Built then
+            Rayfield:Notify({Title = "❌ Error", Content = "Built folder not found", Duration = 3})
+            return
+        end
+
+        local DestroyEvent = game:GetService("ReplicatedStorage").Events.DestroyBlock
+
+        local function GetNil(Name, DebugId)
+            for _, obj in ipairs(getnilinstances()) do
+                if obj.Name == Name and obj:GetDebugId() == DebugId then
+                    return obj
+                end
+            end
+        end
+
+        local total = 0
+        for _, playerFolder in ipairs(Built:GetChildren()) do
+            for _, block in ipairs(playerFolder:GetDescendants()) do
+                if block:IsA("BasePart") or block:IsA("Model") then
+                    pcall(function()
+                        local nilObj = GetNil(block.Name, block:GetDebugId())
+                        if nilObj then
+                            DestroyEvent:InvokeServer(nilObj)
+                            total += 1
+                        end
+                    end)
+                    task.wait(0.06)
+                end
+            end
+        end
+
+        Rayfield:Notify({Title = "💀 EVERYONE WIPED", Content = "Deleted " .. total .. " blocks total", Duration = 6})
     end,
 })
 
@@ -95,6 +135,8 @@ TrollsTab:CreateButton({
 })
 
 TrollsTab:CreateSection("Tips")
-TrollsTab:CreateLabel("Type exact username as shown in Built folder")
+TrollsTab:CreateLabel("• Type exact username")
+TrollsTab:CreateLabel("• Increased delay for better success rate")
+TrollsTab:CreateLabel("• Single block delete works manually → bulk needs delay")
 
 print("⭐ StarCalled Hub - Build Anything! Loaded Successfully!")
