@@ -3,6 +3,8 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local VirtualInputManager = cloneref(game:GetService("VirtualInputManager"))
 local player = Players.LocalPlayer
 
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
@@ -32,6 +34,12 @@ local spawnDelay = 0.1
 local savedPosition = nil
 
 local GrabEvent = ReplicatedStorage:WaitForChild("GrabEvent")
+
+local function pressE()
+    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+    task.wait(0.012)
+    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+end
 
 local function getSpawners()
     local found = {}
@@ -221,13 +229,15 @@ FarmTab:CreateSection("☠️ Shake to Death")
 FarmTab:CreateButton({
     Name = "Shake the Baby to Death",
     Callback = function()
-        Rayfield:Notify({ Title = "☠️ Shaking Baby", Content = "Spamming Grab/Drop for 10 seconds...", Duration = 5 })
+        Rayfield:Notify({ Title = "☠️ Shaking Baby", Content = "Spamming E key for 10 seconds...", Duration = 5 })
 
         local startTime = tick()
         while (tick() - startTime) < 10 do
             GrabEvent:FireServer("Drop")
+            pressE()
             task.wait(0.012)
             GrabEvent:FireServer("Grab")
+            pressE()
             task.wait(0.012)
         end
 
@@ -283,7 +293,7 @@ NotesTab:CreateSection("📝 About")
 NotesTab:CreateLabel("★ StarCalled Hub")
 NotesTab:CreateLabel("Made by: Jayden")
 NotesTab:CreateLabel("Game: Baby Pursuers")
-NotesTab:CreateLabel("Version: 1.3.2")
+NotesTab:CreateLabel("Version: 1.3.3")
 
 local timeLbl = NotesTab:CreateLabel("🕐 Loading time...")
 local function getTime()
