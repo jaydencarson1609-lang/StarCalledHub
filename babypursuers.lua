@@ -215,15 +215,15 @@ FarmTab:CreateSection("☠️ Shake to Death")
 FarmTab:CreateButton({
     Name = "Shake the Baby to Death",
     Callback = function()
-        local babies = getBabies()  -- Get any baby (even if not held)
+        local babies = getBabies()
         if #babies == 0 then
-            Rayfield:Notify({ Title = "❌ No Baby Found", Content = "No babies in workspace!", Duration = 4 })
+            Rayfield:Notify({ Title = "❌ No Baby Found", Content = "No babies in the workspace!", Duration = 4 })
             return
         end
 
         local babyHitbox = babies[1].hitbox
 
-        Rayfield:Notify({ Title = "☠️ Shaking Baby", Content = "Spamming for 10 seconds...", Duration = 5 })
+        Rayfield:Notify({ Title = "☠️ Shaking Baby", Content = "Spamming Grab/Drop for 10 seconds...", Duration = 5 })
 
         local startTime = tick()
         while (tick() - startTime) < 10 do
@@ -233,7 +233,7 @@ FarmTab:CreateButton({
             task.wait(0.012)
         end
 
-        Rayfield:Notify({ Title = "✅ Finished", Content = "Baby shaking completed!", Duration = 3 })
+        Rayfield:Notify({ Title = "✅ Finished", Content = "10 seconds of shaking completed!", Duration = 3 })
     end,
 })
 
@@ -285,7 +285,7 @@ NotesTab:CreateSection("📝 About")
 NotesTab:CreateLabel("★ StarCalled Hub")
 NotesTab:CreateLabel("Made by: Jayden")
 NotesTab:CreateLabel("Game: Baby Pursuers")
-NotesTab:CreateLabel("Version: 1.3.0")
+NotesTab:CreateLabel("Version: 1.3.1")
 
 local timeLbl = NotesTab:CreateLabel("🕐 Loading time...")
 local function getTime()
@@ -295,7 +295,6 @@ timeLbl:Set("🕐 Loaded at: " .. getTime())
 
 -- ==================== LOOPS ====================
 
--- Spawn Loop
 task.spawn(function()
     while true do
         task.wait(0.05)
@@ -316,7 +315,6 @@ task.spawn(function()
     end
 end)
 
--- Farm Loop
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -360,7 +358,6 @@ task.spawn(function()
     end
 end)
 
--- Anti AFK Loop
 task.spawn(function()
     while true do
         task.wait(60)
