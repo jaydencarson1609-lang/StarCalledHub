@@ -49,17 +49,35 @@ local function getSpawners()
     return found
 end
 
-local function getBabies()
+local function getBabies() -- Free babies only (for auto farm)
     local found = {}
     for _, obj in ipairs(workspace:GetChildren()) do
         if obj.Name:find("Baby") and obj:IsA("Model") then
             local hitbox = obj:FindFirstChild("Hitbox")
             if hitbox then
-                table.insert(found, { model = obj, hitbox = hitbox })
+                local isHeld = hitbox:FindFirstChildOfClass("WeldConstraint")
+                    or hitbox:FindFirstChildOfClass("RigidConstraint")
+                    or obj:FindFirstChildOfClass("WeldConstraint")
+                    or obj:FindFirstChildOfClass("RigidConstraint")
+                if not isHeld then
+                    table.insert(found, { model = obj, hitbox = hitbox })
+                end
             end
         end
     end
     return found
+end
+
+local function getAnyBaby() -- NEW: Finds any baby (held or not)
+    for _, obj in ipairs(workspace:GetChildren()) do
+        if obj.Name:find("Baby") and obj:IsA("Model") then
+            local hitbox = obj:FindFirstChild("Hitbox")
+            if hitbox then
+                return hitbox
+            end
+        end
+    end
+    return nil
 end
 
 local function getVent()
@@ -215,13 +233,11 @@ FarmTab:CreateSection("☠️ Shake to Death")
 FarmTab:CreateButton({
     Name = "Shake the Baby to Death",
     Callback = function()
-        local babies = getBabies()
-        if #babies == 0 then
+        local babyHitbox = getAnyBaby()
+        if not babyHitbox then
             Rayfield:Notify({ Title = "❌ No Baby Found", Content = "No babies in the workspace!", Duration = 4 })
             return
         end
-
-        local babyHitbox = babies[1].hitbox
 
         Rayfield:Notify({ Title = "☠️ Shaking Baby", Content = "Spamming Grab/Drop for 10 seconds...", Duration = 5 })
 
@@ -285,7 +301,7 @@ NotesTab:CreateSection("📝 About")
 NotesTab:CreateLabel("★ StarCalled Hub")
 NotesTab:CreateLabel("Made by: Jayden")
 NotesTab:CreateLabel("Game: Baby Pursuers")
-NotesTab:CreateLabel("Version: 1.3.1")
+NotesTab:CreateLabel("Version: 1.3.2")
 
 local timeLbl = NotesTab:CreateLabel("🕐 Loading time...")
 local function getTime()
