@@ -16,13 +16,6 @@ local SUPPORTED_GAMES = {
             loadstring(game:HttpGet("https://raw.githubusercontent.com/jaydencarson1609-lang/StarCalledHub/main/babypursuers.lua"))()
         end
     },
-    {
-        name = "Sell Lemons",
-        emoji = "🍋",
-        loader = function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/jaydencarson1609-lang/StarCalledHub/main/selllemons.lua"))()
-        end
-    },
 }
 
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
@@ -37,6 +30,7 @@ local Window = Rayfield:CreateWindow({
 })
 
 local GameTab = Window:CreateTab("🎮 Games", 4483362458)
+
 GameTab:CreateSection("Supported Games")
 
 for _, gameEntry in ipairs(SUPPORTED_GAMES) do
@@ -58,4 +52,4 @@ end
 
 GameTab:CreateSection("📝 About")
 GameTab:CreateLabel("★ StarCalled Hub — Made by Jayden")
-GameTab:CreateLabel("Baby Pursuers 👶 | Lemons 🍋 | Gambling 🎰")
+GameTab:CreateLabel("Baby Pursuers 👶 | Gambling 🎰")
