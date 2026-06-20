@@ -1,5 +1,4 @@
 -- ★ StarCalled Hub | Build Anything! [🛠️]
--- YouTuber-Style MAX SPEED Delete (Minimal Delays)
 
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
@@ -17,7 +16,6 @@ MainTab:CreateSection("Build System")
 MainTab:CreateLabel("Main tools coming soon...")
 
 local TrollsTab = Window:CreateTab("😈 Trolls", 4483362458)
-
 TrollsTab:CreateSection("Troll Controls")
 
 local targetUsername = ""
@@ -32,7 +30,7 @@ TrollsTab:CreateInput({
 })
 
 TrollsTab:CreateButton({
-    Name = "🗑️ DELETE USER (YouTuber Speed)",
+    Name = "🗑️ DELETE USER",
     Callback = function()
         local username = targetUsername
         if username == "" or not username then return end
@@ -49,16 +47,15 @@ TrollsTab:CreateButton({
             if block:IsA("BasePart") then
                 pcall(function()
                     Event:InvokeServer(block)
-                    Event:InvokeServer(block)
                 end)
-                task.wait(0.01) -- Very fast like YouTuber
+                task.wait(0.01)
             end
         end
     end,
 })
 
 TrollsTab:CreateButton({
-    Name = "🌍 DELETE EVERYONE (YouTuber Speed)",
+    Name = "🌍 DELETE EVERYONE",
     Callback = function()
         local Built = workspace:FindFirstChild("Built")
         if not Built then return end
@@ -70,9 +67,8 @@ TrollsTab:CreateButton({
                 if block:IsA("BasePart") then
                     pcall(function()
                         Event:InvokeServer(block)
-                        Event:InvokeServer(block)
                     end)
-                    task.wait(0.008) -- Extremely fast
+                    task.wait(0.008)
                 end
             end
         end
@@ -86,4 +82,4 @@ TrollsTab:CreateButton({
     end,
 })
 
-print("⭐ YouTuber Speed Troll Script Loaded")
+print("⭐ Script Loaded")
