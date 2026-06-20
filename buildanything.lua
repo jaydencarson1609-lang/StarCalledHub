@@ -47,8 +47,9 @@ TrollsTab:CreateButton({
             if block:IsA("BasePart") then
                 pcall(function()
                     Event:InvokeServer(block)
+                    Event:InvokeServer(block)
                 end)
-                task.wait(0.01)
+                task.wait(0.005) -- Extremely fast
             end
         end
     end,
@@ -67,8 +68,9 @@ TrollsTab:CreateButton({
                 if block:IsA("BasePart") then
                     pcall(function()
                         Event:InvokeServer(block)
+                        Event:InvokeServer(block)
                     end)
-                    task.wait(0.008)
+                    task.wait(0.004) -- Max speed
                 end
             end
         end
