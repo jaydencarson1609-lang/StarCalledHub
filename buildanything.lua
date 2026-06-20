@@ -1,4 +1,5 @@
 -- ★ StarCalled Hub | Build Anything! [🛠️]
+-- FULLY UPDATED - Replace everything
 
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
@@ -6,7 +7,7 @@ local Window = Rayfield:CreateWindow({
     Name = "★ StarCalled Hub - Build Anything! 🛠️",
     LoadingTitle = "StarCalled Hub",
     LoadingSubtitle = "Build Anything!",
-    ConfigurationSaving = { Enabled = true, FolderName = "StarCalledHub", FileName = "BuildAnything" },
+    ConfigurationSaving = { Enabled = false }, -- Disabled to force fresh UI
     Discord = { Enabled = false },
     KeySystem = false,
 })
@@ -75,7 +76,7 @@ TrollsTab:CreateButton({
                         count += 1
                     end
                 end)
-                task.wait(0.08) -- Increased delay for reliability
+                task.wait(0.1) -- Slower for better reliability
             end
         end
 
@@ -86,13 +87,10 @@ TrollsTab:CreateButton({
 TrollsTab:CreateButton({
     Name = "🌍 Delete EVERYONE's Builds",
     Callback = function()
-        Rayfield:Notify({Title = "☢️ Mass Troll", Content = "Deleting ALL builds in server...", Duration = 4})
+        Rayfield:Notify({Title = "☢️ Mass Troll", Content = "Deleting ALL builds...", Duration = 4})
 
         local Built = workspace:FindFirstChild("Built")
-        if not Built then
-            Rayfield:Notify({Title = "❌ Error", Content = "Built folder not found", Duration = 3})
-            return
-        end
+        if not Built then return end
 
         local DestroyEvent = game:GetService("ReplicatedStorage").Events.DestroyBlock
 
@@ -115,12 +113,12 @@ TrollsTab:CreateButton({
                             total += 1
                         end
                     end)
-                    task.wait(0.06)
+                    task.wait(0.08)
                 end
             end
         end
 
-        Rayfield:Notify({Title = "💀 EVERYONE WIPED", Content = "Deleted " .. total .. " blocks total", Duration = 6})
+        Rayfield:Notify({Title = "💀 Server Wiped", Content = "Deleted " .. total .. " blocks", Duration = 6})
     end,
 })
 
@@ -135,8 +133,7 @@ TrollsTab:CreateButton({
 })
 
 TrollsTab:CreateSection("Tips")
-TrollsTab:CreateLabel("• Type exact username")
-TrollsTab:CreateLabel("• Increased delay for better success rate")
-TrollsTab:CreateLabel("• Single block delete works manually → bulk needs delay")
+TrollsTab:CreateLabel("Type exact username from Built folder")
+TrollsTab:CreateLabel("Slower speed = higher success rate")
 
 print("⭐ StarCalled Hub - Build Anything! Loaded Successfully!")
