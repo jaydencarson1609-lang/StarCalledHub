@@ -13,19 +13,20 @@ local Window = Rayfield:CreateWindow({
 
 -- ==================== MAIN TAB ====================
 local MainTab = Window:CreateTab("🛠️ Main", 4483362458)
-MainTab:CreateSection("Build Tools")
-MainTab:CreateLabel("Main building features coming soon...")
+
+MainTab:CreateSection("Build System")
+MainTab:CreateLabel("Main building tools will be added here.")
 
 -- ==================== TROLLS TAB ====================
 local TrollsTab = Window:CreateTab("😈 Trolls", 4483362458)
 
-local targetUsername = ""
-
 TrollsTab:CreateSection("Troll Controls")
+
+local targetUsername = ""
 
 TrollsTab:CreateInput({
     Name = "Delete Specific User's Builds",
-    PlaceholderText = "Type username here (e.g. Chiksa801)",
+    PlaceholderText = "Type username here",
     RemoveTextAfterFocusLost = false,
     Callback = function(text)
         targetUsername = text
@@ -36,27 +37,27 @@ TrollsTab:CreateButton({
     Name = "🗑️ DELETE",
     Callback = function()
         local username = targetUsername
-        if not username or username == "" then
-            Rayfield:Notify({Title = "❌ Error", Content = "Please type a username first", Duration = 3})
+        if username == "" or not username then
+            Rayfield:Notify({Title = "❌ Error", Content = "Enter a username first!", Duration = 3})
             return
         end
-        
-        Rayfield:Notify({Title = "🔥 Deleting", Content = "Targeting " .. username .. "'s builds...", Duration = 3})
-        
+
+        Rayfield:Notify({Title = "🔥 Trolling...", Content = "Deleting " .. username .. "'s builds...", Duration = 3})
+
         local Built = workspace:FindFirstChild("Built")
         if not Built then
             Rayfield:Notify({Title = "❌ Error", Content = "Built folder not found", Duration = 3})
             return
         end
-        
+
         local targetFolder = Built:FindFirstChild(username)
         if not targetFolder then
-            Rayfield:Notify({Title = "❌ Not Found", Content = "No builds found for " .. username, Duration = 4})
+            Rayfield:Notify({Title = "❌ Not Found", Content = username .. " has no builds here", Duration = 4})
             return
         end
-        
+
         local DestroyEvent = game:GetService("ReplicatedStorage").Events.DestroyBlock
-        
+
         local function GetNil(Name, DebugId)
             for _, obj in ipairs(getnilinstances()) do
                 if obj.Name == Name and obj:GetDebugId() == DebugId then
@@ -64,7 +65,7 @@ TrollsTab:CreateButton({
                 end
             end
         end
-        
+
         local count = 0
         for _, block in ipairs(targetFolder:GetDescendants()) do
             if block:IsA("BasePart") then
@@ -78,8 +79,8 @@ TrollsTab:CreateButton({
                 task.wait(0.03)
             end
         end
-        
-        Rayfield:Notify({Title = "✅ Troll Success", Content = "Deleted " .. count .. " blocks from " .. username, Duration = 4})
+
+        Rayfield:Notify({Title = "✅ Troll Complete", Content = "Deleted " .. count .. " blocks from " .. username, Duration = 5})
     end,
 })
 
@@ -89,12 +90,11 @@ TrollsTab:CreateButton({
         pcall(function()
             game:GetService("ReplicatedStorage").Events.DeleteAllPlayerBlocks:FireServer()
         end)
-        Rayfield:Notify({Title = "🗑️ Cleared", Content = "All of your builds have been deleted", Duration = 3})
+        Rayfield:Notify({Title = "🗑️ Cleared", Content = "All your builds deleted", Duration = 3})
     end,
 })
 
 TrollsTab:CreateSection("Tips")
-TrollsTab:CreateLabel("Type exact username from Built folder")
-TrollsTab:CreateLabel("Works on visible player builds")
+TrollsTab:CreateLabel("Type exact username as shown in Built folder")
 
 print("⭐ StarCalled Hub - Build Anything! Loaded Successfully!")
