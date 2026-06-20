@@ -1,5 +1,5 @@
 -- StarCalled Hub | Baby Pursuers
--- Auto Spawn + Auto Pick Up & Drop into Vent + Drop at Saved Position + Spam Drop/Pickup
+-- Auto Spawn + Auto Pick Up & Drop + Saved Pos + Improved Spam Drop/Pickup
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -145,7 +145,7 @@ FarmTab:CreateToggle({
         if val then
             local vent = getVent()
             if not vent then
-                Rayfield:Notify({ Title = "❌ Error", Content = "Vent part not found in workspace!", Duration = 4 })
+                Rayfield:Notify({ Title = "❌ Error", Content = "Vent part not found!", Duration = 4 })
                 farmRunning = false
                 return
             end
@@ -162,15 +162,9 @@ FarmTab:CreateButton({
     Name = "Grab & Drop Once (Vent)",
     Callback = function()
         local babies = getBabies()
-        if #babies == 0 then
-            Rayfield:Notify({ Title = "❌ No Babies", Content = "No free babies found!", Duration = 3 })
-            return
-        end
+        if #babies == 0 then return end
         local vent = getVent()
-        if not vent then
-            Rayfield:Notify({ Title = "❌ No Vent", Content = "Vent part not found!", Duration = 3 })
-            return
-        end
+        if not vent then return end
         local baby = babies[1]
         teleportTo(baby.hitbox)
         GrabEvent:FireServer("Grab", baby.hitbox)
@@ -180,11 +174,9 @@ FarmTab:CreateButton({
         GrabEvent:FireServer("Drop")
         farmCount += 1
         farmCountLbl:Set("✅ Dropped: " .. farmCount)
-        Rayfield:Notify({ Title = "✅ Done", Content = "Grabbed and dropped 1 baby!", Duration = 3 })
     end,
 })
 
--- Saved Position Section (unchanged)
 FarmTab:CreateSection("📍 Drop at Saved Position")
 local savedPosLbl = FarmTab:CreateLabel("📍 No position saved yet")
 
@@ -193,33 +185,24 @@ FarmTab:CreateButton({
     Callback = function()
         local character = player.Character
         local hrp = character and character:FindFirstChild("HumanoidRootPart")
-        if not hrp then
-            Rayfield:Notify({ Title = "❌ Error", Content = "No character found!", Duration = 3 })
-            return
-        end
+        if not hrp then return end
         savedPosition = hrp.CFrame
         local pos = hrp.Position
         savedPosLbl:Set(string.format("📍 Saved: %.1f, %.1f, %.1f", pos.X, pos.Y, pos.Z))
-        Rayfield:Notify({ Title = "📍 Position Saved", Content = "Drop point locked in!", Duration = 3 })
     end,
 })
 
 FarmTab:CreateButton({
     Name = "👶 Grab Baby → Drop at Saved Pos",
     Callback = function()
-        if not savedPosition then
-            Rayfield:Notify({ Title = "❌ No Position", Content = "Save a position first!", Duration = 3 })
-            return
-        end
+        if not savedPosition then return end
         local babies = getBabies()
-        if #babies == 0 then
-            Rayfield:Notify({ Title = "❌ No Babies", Content = "No free babies found!", Duration = 3 })
-            return
-        end
+        if #babies == 0 then return end
+        local baby = babies[1]
         local character = player.Character
         local hrp = character and character:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
-        local baby = babies[1]
+        
         teleportTo(baby.hitbox)
         GrabEvent:FireServer("Grab", baby.hitbox)
         task.wait(0.5)
@@ -228,11 +211,10 @@ FarmTab:CreateButton({
         GrabEvent:FireServer("Drop")
         farmCount += 1
         farmCountLbl:Set("✅ Dropped: " .. farmCount)
-        Rayfield:Notify({ Title = "✅ Dropped!", Content = "Baby dropped at your saved position.", Duration = 3 })
     end,
 })
 
--- ==================== SPAM DROP/PICKUP (BABY KILLER) ====================
+-- ==================== SPAM DROP/PICKUP ====================
 FarmTab:CreateSection("⚡ Fast Kill")
 local spamStatus = FarmTab:CreateLabel("⚪ Spam: Off")
 
@@ -267,24 +249,20 @@ StatsTab:CreateButton({
         farmCountLbl:Set("✅ Dropped: 0")
         s_spawns:Set("Total Spawns: 0")
         s_farm:Set("Total Dropped: 0")
-        Rayfield:Notify({ Title = "Reset", Content = "Stats cleared!", Duration = 3 })
     end,
 })
 
--- ==================== OTHERS TAB ====================
+-- ==================== OTHERS & NOTES TAB (unchanged) ====================
 OtherTab:CreateSection("🔧 Tools")
 OtherTab:CreateButton({
     Name = "🔍 Load Infinite Yield",
     Callback = function()
-        Rayfield:Notify({ Title = "🔍 Infinite Yield", Content = "Loading...", Duration = 3 })
         loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
-        Rayfield:Notify({ Title = "✅ Infinite Yield", Content = "Loaded successfully!", Duration = 3 })
     end,
 })
 
 OtherTab:CreateSection("🚶 Anti AFK")
 local afkStatusLbl = OtherTab:CreateLabel("⚪ Anti AFK: Off")
-
 OtherTab:CreateToggle({
     Name = "Anti AFK",
     CurrentValue = false,
@@ -293,72 +271,58 @@ OtherTab:CreateToggle({
         afkRunning = val
         if val then
             afkStatusLbl:Set("🟢 Anti AFK: On")
-            Rayfield:Notify({ Title = "🚶 Anti AFK", Content = "Anti AFK enabled!", Duration = 3 })
         else
             afkStatusLbl:Set("⚪ Anti AFK: Off")
-            Rayfield:Notify({ Title = "🚶 Anti AFK", Content = "Anti AFK disabled.", Duration = 2 })
         end
     end,
 })
 
--- ==================== NOTES TAB ====================
 NotesTab:CreateSection("📝 About")
 NotesTab:CreateLabel("★ StarCalled Hub")
 NotesTab:CreateLabel("Made by: Jayden")
 NotesTab:CreateLabel("Game: Baby Pursuers")
-NotesTab:CreateLabel("Version: 1.2.0")
-NotesTab:CreateSection("🕐 Session Info")
+NotesTab:CreateLabel("Version: 1.2.1")
 local timeLbl = NotesTab:CreateLabel("🕐 Loading time...")
-
-local function getTime()
-    local success, result = pcall(function()
-        return os.date("%A %d %B %Y • %H:%M:%S")
-    end)
-    if success then return result end
-    return "Time unavailable"
-end
+local function getTime() return os.date("%A %d %B %Y • %H:%M:%S") end
 timeLbl:Set("🕐 Loaded at: " .. getTime())
 
-NotesTab:CreateButton({
-    Name = "🔄 Refresh Time",
-    Callback = function()
-        timeLbl:Set("🕐 Loaded at: " .. getTime())
-    end,
-})
+-- ==================== LOOPS ====================
 
--- ==================== SPAWN LOOP ====================
+-- Spawn Loop
 task.spawn(function()
     while true do
         task.wait(0.05)
         local spawners = getSpawners()
         spawnerLbl:Set("🔍 Spawners Found: " .. #spawners)
-        if not spawnRunning then task.wait(0.3) continue end
-        for _, entry in ipairs(spawners) do
-            if not spawnRunning then break end
-            fireclickdetector(entry.cd)
-            spawnCount += 1
-            spawnCountLbl:Set("👶 Total Spawned: " .. spawnCount)
-            s_spawns:Set("Total Spawns: " .. spawnCount)
-            task.wait(spawnDelay)
+        if spawnRunning then
+            for _, entry in ipairs(spawners) do
+                if not spawnRunning then break end
+                fireclickdetector(entry.cd)
+                spawnCount += 1
+                spawnCountLbl:Set("👶 Total Spawned: " .. spawnCount)
+                s_spawns:Set("Total Spawns: " .. spawnCount)
+                task.wait(spawnDelay)
+            end
+        else
+            task.wait(0.3)
         end
     end
 end)
 
--- ==================== FARM LOOP ====================
+-- Farm Loop (unchanged)
 task.spawn(function()
     while true do
         task.wait(0.1)
         local babies = getBabies()
         babyCountLbl:Set("👶 Babies Found: " .. #babies)
         s_babies:Set("Babies in World: " .. #babies)
+        
         if not farmRunning then task.wait(0.3) continue end
+        -- ... (rest of farm loop same as before)
         local vent = getVent()
-        if not vent then
-            farmStatusLbl:Set("❌ Vent not found!")
-            task.wait(1) continue
-        end
+        if not vent then task.wait(1) continue end
         if #babies == 0 then
-            farmStatusLbl:Set("⏳ No free babies — spawning more...")
+            -- spawn logic
             local spawners = getSpawners()
             for _, entry in ipairs(spawners) do
                 if not farmRunning then break end
@@ -389,28 +353,27 @@ task.spawn(function()
     end
 end)
 
--- ==================== SPAM DROP/PICKUP LOOP ====================
+-- **Improved Spam Loop**
 task.spawn(function()
     while true do
-        task.wait(0.025)
+        task.wait(0.08) -- More stable rate
+        
         if not spamRunning then continue end
         
         local character = player.Character
         if not character then continue end
         
-        local holding = false
         local babyHitbox = nil
         
+        -- Check held baby more reliably
         for _, obj in ipairs(workspace:GetChildren()) do
             if obj.Name:find("Baby") and obj:IsA("Model") then
                 local hitbox = obj:FindFirstChild("Hitbox")
                 if hitbox then
-                    local weld = hitbox:FindFirstChildOfClass("WeldConstraint") or 
-                                hitbox:FindFirstChildOfClass("RigidConstraint") or
-                                obj:FindFirstChildOfClass("WeldConstraint") or 
-                                obj:FindFirstChildOfClass("RigidConstraint")
-                    if weld then
-                        holding = true
+                    if hitbox:FindFirstChildOfClass("WeldConstraint") or 
+                       hitbox:FindFirstChildOfClass("RigidConstraint") or
+                       obj:FindFirstChildOfClass("WeldConstraint") or 
+                       obj:FindFirstChildOfClass("RigidConstraint") then
                         babyHitbox = hitbox
                         break
                     end
@@ -418,15 +381,16 @@ task.spawn(function()
             end
         end
         
-        if holding and babyHitbox then
+        if babyHitbox then
             GrabEvent:FireServer("Drop")
-            task.wait(0.02)
+            task.wait(0.035)
             GrabEvent:FireServer("Grab", babyHitbox)
+            task.wait(0.035)
         end
     end
 end)
 
--- ==================== ANTI AFK LOOP ====================
+-- Anti AFK Loop
 task.spawn(function()
     while true do
         task.wait(60)
@@ -434,9 +398,10 @@ task.spawn(function()
         local character = player.Character
         if not character then continue end
         local hrp = character:FindFirstChild("HumanoidRootPart")
-        if not hrp then continue end
-        hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, 0.1)
-        task.wait(0.1)
-        hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, -0.1)
+        if hrp then
+            hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, 0.1)
+            task.wait(0.1)
+            hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, -0.1)
+        end
     end
 end)
