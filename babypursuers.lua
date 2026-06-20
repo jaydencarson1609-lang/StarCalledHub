@@ -55,13 +55,7 @@ local function getBabies()
         if obj.Name:find("Baby") and obj:IsA("Model") then
             local hitbox = obj:FindFirstChild("Hitbox")
             if hitbox then
-                local isHeld = hitbox:FindFirstChildOfClass("WeldConstraint")
-                    or hitbox:FindFirstChildOfClass("RigidConstraint")
-                    or obj:FindFirstChildOfClass("WeldConstraint")
-                    or obj:FindFirstChildOfClass("RigidConstraint")
-                if not isHeld then
-                    table.insert(found, { model = obj, hitbox = hitbox })
-                end
+                table.insert(found, { model = obj, hitbox = hitbox })
             end
         end
     end
@@ -216,51 +210,30 @@ FarmTab:CreateButton({
     end,
 })
 
--- ==================== SHAKE BABY TO DEATH BUTTON ====================
+-- ==================== SHAKE BABY TO DEATH ====================
 FarmTab:CreateSection("☠️ Shake to Death")
 FarmTab:CreateButton({
     Name = "Shake the Baby to Death",
     Callback = function()
-        local character = player.Character
-        if not character then
-            Rayfield:Notify({ Title = "❌ Error", Content = "No character found!", Duration = 3 })
+        local babies = getBabies()  -- Get any baby (even if not held)
+        if #babies == 0 then
+            Rayfield:Notify({ Title = "❌ No Baby Found", Content = "No babies in workspace!", Duration = 4 })
             return
         end
 
-        -- Find currently held baby
-        local babyHitbox = nil
-        for _, obj in ipairs(workspace:GetChildren()) do
-            if obj.Name:find("Baby") and obj:IsA("Model") then
-                local hitbox = obj:FindFirstChild("Hitbox")
-                if hitbox then
-                    local isHeld = hitbox:FindFirstChildOfClass("WeldConstraint") or
-                                   hitbox:FindFirstChildOfClass("RigidConstraint") or
-                                   obj:FindFirstChildOfClass("WeldConstraint") or
-                                   obj:FindFirstChildOfClass("RigidConstraint")
-                    if isHeld then
-                        babyHitbox = hitbox
-                        break
-                    end
-                end
-            end
-        end
+        local babyHitbox = babies[1].hitbox
 
-        if not babyHitbox then
-            Rayfield:Notify({ Title = "❌ No Baby Held", Content = "Hold a baby first!", Duration = 4 })
-            return
-        end
-
-        Rayfield:Notify({ Title = "☠️ Shaking Baby", Content = "Spamming Grab/Drop for 10 seconds...", Duration = 5 })
+        Rayfield:Notify({ Title = "☠️ Shaking Baby", Content = "Spamming for 10 seconds...", Duration = 5 })
 
         local startTime = tick()
         while (tick() - startTime) < 10 do
             GrabEvent:FireServer("Drop")
-            task.wait(0.015)
+            task.wait(0.012)
             GrabEvent:FireServer("Grab", babyHitbox)
-            task.wait(0.015)
+            task.wait(0.012)
         end
 
-        Rayfield:Notify({ Title = "✅ Done", Content = "Baby shaking finished!", Duration = 3 })
+        Rayfield:Notify({ Title = "✅ Finished", Content = "Baby shaking completed!", Duration = 3 })
     end,
 })
 
