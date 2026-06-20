@@ -1,5 +1,5 @@
 -- StarCalled Hub | Baby Pursuers
--- Auto Spawn + Auto Pick Up & Drop + Saved Pos + Improved Spam Drop/Pickup
+-- Auto Spawn + Auto Pick Up & Drop + Saved Pos + Shake Baby to Death
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -25,7 +25,6 @@ local NotesTab = Window:CreateTab("📝 Notes", 4483362458)
 local spawnRunning = false
 local farmRunning = false
 local afkRunning = false
-local spamRunning = false
 
 local spawnCount = 0
 local farmCount = 0
@@ -162,7 +161,10 @@ FarmTab:CreateButton({
     Name = "Grab & Drop Once (Vent)",
     Callback = function()
         local babies = getBabies()
-        if #babies == 0 then return end
+        if #babies == 0 then
+            Rayfield:Notify({ Title = "❌ No Babies", Content = "No free babies found!", Duration = 3 })
+            return
+        end
         local vent = getVent()
         if not vent then return end
         local baby = babies[1]
@@ -214,23 +216,51 @@ FarmTab:CreateButton({
     end,
 })
 
--- ==================== SPAM DROP/PICKUP ====================
-FarmTab:CreateSection("⚡ Fast Kill")
-local spamStatus = FarmTab:CreateLabel("⚪ Spam: Off")
-
-FarmTab:CreateToggle({
-    Name = "Spam Drop/Pickup (Hold Baby)",
-    CurrentValue = false,
-    Flag = "SpamKill",
-    Callback = function(val)
-        spamRunning = val
-        if val then
-            spamStatus:Set("🟢 Spam Active - Hold a baby")
-            Rayfield:Notify({ Title = "⚡ Spam Drop/Pickup", Content = "Enabled! Hold any baby now.", Duration = 3 })
-        else
-            spamStatus:Set("⚪ Spam: Off")
-            Rayfield:Notify({ Title = "⚡ Spam Drop/Pickup", Content = "Disabled.", Duration = 2 })
+-- ==================== SHAKE BABY TO DEATH BUTTON ====================
+FarmTab:CreateSection("☠️ Shake to Death")
+FarmTab:CreateButton({
+    Name = "Shake the Baby to Death",
+    Callback = function()
+        local character = player.Character
+        if not character then
+            Rayfield:Notify({ Title = "❌ Error", Content = "No character found!", Duration = 3 })
+            return
         end
+
+        -- Find currently held baby
+        local babyHitbox = nil
+        for _, obj in ipairs(workspace:GetChildren()) do
+            if obj.Name:find("Baby") and obj:IsA("Model") then
+                local hitbox = obj:FindFirstChild("Hitbox")
+                if hitbox then
+                    local isHeld = hitbox:FindFirstChildOfClass("WeldConstraint") or
+                                   hitbox:FindFirstChildOfClass("RigidConstraint") or
+                                   obj:FindFirstChildOfClass("WeldConstraint") or
+                                   obj:FindFirstChildOfClass("RigidConstraint")
+                    if isHeld then
+                        babyHitbox = hitbox
+                        break
+                    end
+                end
+            end
+        end
+
+        if not babyHitbox then
+            Rayfield:Notify({ Title = "❌ No Baby Held", Content = "Hold a baby first!", Duration = 4 })
+            return
+        end
+
+        Rayfield:Notify({ Title = "☠️ Shaking Baby", Content = "Spamming Grab/Drop for 10 seconds...", Duration = 5 })
+
+        local startTime = tick()
+        while (tick() - startTime) < 10 do
+            GrabEvent:FireServer("Drop")
+            task.wait(0.015)
+            GrabEvent:FireServer("Grab", babyHitbox)
+            task.wait(0.015)
+        end
+
+        Rayfield:Notify({ Title = "✅ Done", Content = "Baby shaking finished!", Duration = 3 })
     end,
 })
 
@@ -252,7 +282,7 @@ StatsTab:CreateButton({
     end,
 })
 
--- ==================== OTHERS & NOTES TAB (unchanged) ====================
+-- ==================== OTHERS TAB ====================
 OtherTab:CreateSection("🔧 Tools")
 OtherTab:CreateButton({
     Name = "🔍 Load Infinite Yield",
@@ -277,13 +307,17 @@ OtherTab:CreateToggle({
     end,
 })
 
+-- ==================== NOTES TAB ====================
 NotesTab:CreateSection("📝 About")
 NotesTab:CreateLabel("★ StarCalled Hub")
 NotesTab:CreateLabel("Made by: Jayden")
 NotesTab:CreateLabel("Game: Baby Pursuers")
-NotesTab:CreateLabel("Version: 1.2.1")
+NotesTab:CreateLabel("Version: 1.3.0")
+
 local timeLbl = NotesTab:CreateLabel("🕐 Loading time...")
-local function getTime() return os.date("%A %d %B %Y • %H:%M:%S") end
+local function getTime()
+    return os.date("%A %d %B %Y • %H:%M:%S")
+end
 timeLbl:Set("🕐 Loaded at: " .. getTime())
 
 -- ==================== LOOPS ====================
@@ -309,7 +343,7 @@ task.spawn(function()
     end
 end)
 
--- Farm Loop (unchanged)
+-- Farm Loop
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -318,11 +352,10 @@ task.spawn(function()
         s_babies:Set("Babies in World: " .. #babies)
         
         if not farmRunning then task.wait(0.3) continue end
-        -- ... (rest of farm loop same as before)
+        
         local vent = getVent()
         if not vent then task.wait(1) continue end
         if #babies == 0 then
-            -- spawn logic
             local spawners = getSpawners()
             for _, entry in ipairs(spawners) do
                 if not farmRunning then break end
@@ -334,6 +367,7 @@ task.spawn(function()
             end
             task.wait(0.3) continue
         end
+        
         for _, baby in ipairs(babies) do
             if not farmRunning then break end
             if not baby.hitbox or not baby.hitbox.Parent then continue end
@@ -349,43 +383,6 @@ task.spawn(function()
             farmCountLbl:Set("✅ Dropped: " .. farmCount)
             s_farm:Set("Total Dropped: " .. farmCount)
             task.wait(0.5)
-        end
-    end
-end)
-
--- **Improved Spam Loop**
-task.spawn(function()
-    while true do
-        task.wait(0.08) -- More stable rate
-        
-        if not spamRunning then continue end
-        
-        local character = player.Character
-        if not character then continue end
-        
-        local babyHitbox = nil
-        
-        -- Check held baby more reliably
-        for _, obj in ipairs(workspace:GetChildren()) do
-            if obj.Name:find("Baby") and obj:IsA("Model") then
-                local hitbox = obj:FindFirstChild("Hitbox")
-                if hitbox then
-                    if hitbox:FindFirstChildOfClass("WeldConstraint") or 
-                       hitbox:FindFirstChildOfClass("RigidConstraint") or
-                       obj:FindFirstChildOfClass("WeldConstraint") or 
-                       obj:FindFirstChildOfClass("RigidConstraint") then
-                        babyHitbox = hitbox
-                        break
-                    end
-                end
-            end
-        end
-        
-        if babyHitbox then
-            GrabEvent:FireServer("Drop")
-            task.wait(0.035)
-            GrabEvent:FireServer("Grab", babyHitbox)
-            task.wait(0.035)
         end
     end
 end)
