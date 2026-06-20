@@ -30,7 +30,7 @@ TrollsTab:CreateInput({
 })
 
 TrollsTab:CreateButton({
-    Name = "🗑️ DELETE USER",
+    Name = "🗑️ DELETE",
     Callback = function()
         local username = targetUsername
         if username == "" or not username then return end
@@ -48,15 +48,29 @@ TrollsTab:CreateButton({
                 pcall(function()
                     Event:InvokeServer(block)
                     Event:InvokeServer(block)
+                    Event:InvokeServer(block)
+                    Event:InvokeServer(block)
+                    Event:InvokeServer(block)
+                    Event:InvokeServer(block)
+                    Event:InvokeServer(block)
+                    Event:InvokeServer(block)
+                    Event:InvokeServer(block)
+                    Event:InvokeServer(block)
+                    Event:InvokeServer(block)
+                    Event:InvokeServer(block)
+                    Event:InvokeServer(block)
+                    Event:InvokeServer(block)
+                    Event:InvokeServer(block)
+                    Event:InvokeServer(block)  
                 end)
-                task.wait(0.005) -- Extremely fast
+                task.wait(0.00000000000000000000000000000000000000000000000000000000000000000000000) -- Extremely fast
             end
         end
     end,
 })
 
 TrollsTab:CreateButton({
-    Name = "🌍 DELETE EVERYONE",
+    Name = "🌍 DELETE EVERYONE BUILDS",
     Callback = function()
         local Built = workspace:FindFirstChild("Built")
         if not Built then return end
