@@ -231,7 +231,7 @@ FarmTab:CreateButton({
 -- ==================== SHAKE BABY TO DEATH ====================
 FarmTab:CreateSection("☠️ Shake to Death")
 FarmTab:CreateButton({
-    Name = "Shake the Baby to Death",
+    Name = "☠️ Shake the Baby to Death",
     Callback = function()
         local babyHitbox = getAnyBabyHitbox()
 
@@ -240,21 +240,21 @@ FarmTab:CreateButton({
             return
         end
 
-        Rayfield:Notify({ Title = "☠️ Shaking Baby", Content = "Spamming remotes for 10 seconds...", Duration = 5 })
+        Rayfield:Notify({ Title = "☠️ Shaking Baby", Content = "Spamming remotes for 5 seconds...", Duration = 5 })
 
         local startTime = tick()
-        while (tick() - startTime) < 10 do
+        while (tick() - startTime) < 5 do
             GrabEvent:FireServer("Drop")
             task.wait(0.012)
             GrabEvent:FireServer("Grab", babyHitbox)
             task.wait(0.012)
         end
-        -- Drop at the end so baby isn't stuck held
         GrabEvent:FireServer("Drop")
 
-        Rayfield:Notify({ Title = "✅ Finished", Content = "10 seconds of shaking done!", Duration = 3 })
+        Rayfield:Notify({ Title = "✅ Finished", Content = "5 seconds of shaking done!", Duration = 3 })
     end,
 })
+FarmTab:CreateLabel("⚠️ Do NOT hold the baby. Go near a baby and press this button!")
 
 -- ==================== STATS TAB ====================
 StatsTab:CreateSection("📊 Session Stats")
@@ -304,7 +304,7 @@ NotesTab:CreateSection("📝 About")
 NotesTab:CreateLabel("★ StarCalled Hub")
 NotesTab:CreateLabel("Made by: Jayden")
 NotesTab:CreateLabel("Game: Baby Pursuers")
-NotesTab:CreateLabel("Version: 1.3.5")
+NotesTab:CreateLabel("Version: 1.3.6")
 
 local timeLbl = NotesTab:CreateLabel("🕐 Loading time...")
 local function getTime()
