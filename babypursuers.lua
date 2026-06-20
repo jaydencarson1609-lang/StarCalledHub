@@ -49,7 +49,7 @@ local function getSpawners()
     return found
 end
 
-local function getBabies() -- Free babies only (for auto farm)
+local function getBabies()
     local found = {}
     for _, obj in ipairs(workspace:GetChildren()) do
         if obj.Name:find("Baby") and obj:IsA("Model") then
@@ -66,18 +66,6 @@ local function getBabies() -- Free babies only (for auto farm)
         end
     end
     return found
-end
-
-local function getAnyBaby() -- NEW: Finds any baby (held or not)
-    for _, obj in ipairs(workspace:GetChildren()) do
-        if obj.Name:find("Baby") and obj:IsA("Model") then
-            local hitbox = obj:FindFirstChild("Hitbox")
-            if hitbox then
-                return hitbox
-            end
-        end
-    end
-    return nil
 end
 
 local function getVent()
@@ -216,7 +204,7 @@ FarmTab:CreateButton({
         local character = player.Character
         local hrp = character and character:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
-        
+
         teleportTo(baby.hitbox)
         GrabEvent:FireServer("Grab", baby.hitbox)
         task.wait(0.5)
@@ -233,19 +221,13 @@ FarmTab:CreateSection("☠️ Shake to Death")
 FarmTab:CreateButton({
     Name = "Shake the Baby to Death",
     Callback = function()
-        local babyHitbox = getAnyBaby()
-        if not babyHitbox then
-            Rayfield:Notify({ Title = "❌ No Baby Found", Content = "No babies in the workspace!", Duration = 4 })
-            return
-        end
-
         Rayfield:Notify({ Title = "☠️ Shaking Baby", Content = "Spamming Grab/Drop for 10 seconds...", Duration = 5 })
 
         local startTime = tick()
         while (tick() - startTime) < 10 do
             GrabEvent:FireServer("Drop")
             task.wait(0.012)
-            GrabEvent:FireServer("Grab", babyHitbox)
+            GrabEvent:FireServer("Grab")
             task.wait(0.012)
         end
 
@@ -337,9 +319,9 @@ task.spawn(function()
         local babies = getBabies()
         babyCountLbl:Set("👶 Babies Found: " .. #babies)
         s_babies:Set("Babies in World: " .. #babies)
-        
+
         if not farmRunning then task.wait(0.3) continue end
-        
+
         local vent = getVent()
         if not vent then task.wait(1) continue end
         if #babies == 0 then
@@ -354,7 +336,7 @@ task.spawn(function()
             end
             task.wait(0.3) continue
         end
-        
+
         for _, baby in ipairs(babies) do
             if not farmRunning then break end
             if not baby.hitbox or not baby.hitbox.Parent then continue end
