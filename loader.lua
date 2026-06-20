@@ -16,13 +16,6 @@ local SUPPORTED_GAMES = {
             loadstring(game:HttpGet("https://raw.githubusercontent.com/jaydencarson1609-lang/StarCalledHub/main/babypursuers.lua"))()
         end
     },
-    {
-        name = "Funky Friday",
-        emoji = "🎵",
-        loader = function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/jaydencarson1609-lang/StarCalledHub/main/funkyfriday.lua"))()
-        end
-    },
 }
 
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
@@ -49,9 +42,11 @@ for _, gameEntry in ipairs(SUPPORTED_GAMES) do
                 Content = "Loading " .. gameEntry.name .. "...",
                 Duration = 3
             })
+
             task.wait(1.5)
             Rayfield:Destroy()
             task.wait(0.3)
+
             gameEntry.loader()
         end,
     })
@@ -59,4 +54,4 @@ end
 
 GameTab:CreateSection("📝 About")
 GameTab:CreateLabel("★ StarCalled Hub — Made by Jayden")
-GameTab:CreateLabel("Baby Pursuers 👶 | Gambling 🎰 | Funky Friday 🎵")
+GameTab:CreateLabel("Baby Pursuers 👶 | Gambling 🎰")
