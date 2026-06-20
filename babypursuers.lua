@@ -1,5 +1,5 @@
 -- StarCalled Hub | Baby Pursuers
--- Auto Spawn + Auto Pick Up & Drop into Vent + Drop at Saved Position
+-- Auto Spawn + Auto Pick Up & Drop into Vent + Drop at Saved Position + Spam Drop/Pickup
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -16,19 +16,21 @@ local Window = Rayfield:CreateWindow({
     KeySystem = false,
 })
 
-local SpawnTab  = Window:CreateTab("👶 Spawner", 4483362458)
-local FarmTab   = Window:CreateTab("🔄 Farm",    4483362458)
-local StatsTab  = Window:CreateTab("📊 Stats",   4483362458)
-local OtherTab  = Window:CreateTab("🛠 Others",  4483362458)
-local NotesTab  = Window:CreateTab("📝 Notes",   4483362458)
+local SpawnTab = Window:CreateTab("👶 Spawner", 4483362458)
+local FarmTab = Window:CreateTab("🔄 Farm", 4483362458)
+local StatsTab = Window:CreateTab("📊 Stats", 4483362458)
+local OtherTab = Window:CreateTab("🛠 Others", 4483362458)
+local NotesTab = Window:CreateTab("📝 Notes", 4483362458)
 
 local spawnRunning = false
-local farmRunning  = false
-local afkRunning   = false
-local spawnCount   = 0
-local farmCount    = 0
-local spawnDelay   = 0.1
-local savedPosition = nil  -- NEW: saved drop position
+local farmRunning = false
+local afkRunning = false
+local spamRunning = false
+
+local spawnCount = 0
+local farmCount = 0
+local spawnDelay = 0.1
+local savedPosition = nil
 
 local GrabEvent = ReplicatedStorage:WaitForChild("GrabEvent")
 
@@ -84,7 +86,7 @@ end
 -- ==================== SPAWN TAB ====================
 SpawnTab:CreateSection("👶 Auto Spawn Controls")
 local spawnStatusLbl = SpawnTab:CreateLabel("⚪ Status: Idle")
-local spawnerLbl     = SpawnTab:CreateLabel("🔍 Spawners Found: 0")
+local spawnerLbl = SpawnTab:CreateLabel("🔍 Spawners Found: 0")
 
 SpawnTab:CreateToggle({
     Name = "Auto Spawn Baby",
@@ -131,8 +133,8 @@ local spawnCountLbl = SpawnTab:CreateLabel("👶 Total Spawned: 0")
 -- ==================== FARM TAB ====================
 FarmTab:CreateSection("🔄 Auto Pick Up & Drop")
 local farmStatusLbl = FarmTab:CreateLabel("⚪ Farm: Idle")
-local babyCountLbl  = FarmTab:CreateLabel("👶 Babies Found: 0")
-local farmCountLbl  = FarmTab:CreateLabel("✅ Dropped: 0")
+local babyCountLbl = FarmTab:CreateLabel("👶 Babies Found: 0")
+local farmCountLbl = FarmTab:CreateLabel("✅ Dropped: 0")
 
 FarmTab:CreateToggle({
     Name = "Auto Farm (Grab → Vent → Drop)",
@@ -182,7 +184,7 @@ FarmTab:CreateButton({
     end,
 })
 
--- ==================== NEW: SAVED POSITION DROP ====================
+-- Saved Position Section (unchanged)
 FarmTab:CreateSection("📍 Drop at Saved Position")
 local savedPosLbl = FarmTab:CreateLabel("📍 No position saved yet")
 
@@ -216,16 +218,11 @@ FarmTab:CreateButton({
         end
         local character = player.Character
         local hrp = character and character:FindFirstChild("HumanoidRootPart")
-        if not hrp then
-            Rayfield:Notify({ Title = "❌ Error", Content = "No character!", Duration = 3 })
-            return
-        end
+        if not hrp then return end
         local baby = babies[1]
-        -- Teleport to baby and grab
         teleportTo(baby.hitbox)
         GrabEvent:FireServer("Grab", baby.hitbox)
         task.wait(0.5)
-        -- Teleport back to saved position and drop
         hrp.CFrame = savedPosition
         task.wait(0.3)
         GrabEvent:FireServer("Drop")
@@ -235,22 +232,30 @@ FarmTab:CreateButton({
     end,
 })
 
-FarmTab:CreateButton({
-    Name = "🔁 Auto Loop: Grab → Saved Pos (Toggle)",
-    Callback = function()
-        if not savedPosition then
-            Rayfield:Notify({ Title = "❌ No Position", Content = "Save a position first!", Duration = 3 })
-            return
+-- ==================== SPAM DROP/PICKUP (BABY KILLER) ====================
+FarmTab:CreateSection("⚡ Fast Kill")
+local spamStatus = FarmTab:CreateLabel("⚪ Spam: Off")
+
+FarmTab:CreateToggle({
+    Name = "Spam Drop/Pickup (Hold Baby)",
+    CurrentValue = false,
+    Flag = "SpamKill",
+    Callback = function(val)
+        spamRunning = val
+        if val then
+            spamStatus:Set("🟢 Spam Active - Hold a baby")
+            Rayfield:Notify({ Title = "⚡ Spam Drop/Pickup", Content = "Enabled! Hold any baby now.", Duration = 3 })
+        else
+            spamStatus:Set("⚪ Spam: Off")
+            Rayfield:Notify({ Title = "⚡ Spam Drop/Pickup", Content = "Disabled.", Duration = 2 })
         end
-        -- Reuse farmRunning but for saved pos mode — toggle a separate flag
-        Rayfield:Notify({ Title = "💡 Tip", Content = "Use Auto Farm toggle for looping. This runs once.", Duration = 4 })
     end,
 })
 
 -- ==================== STATS TAB ====================
 StatsTab:CreateSection("📊 Session Stats")
 local s_spawns = StatsTab:CreateLabel("Total Spawns: 0")
-local s_farm   = StatsTab:CreateLabel("Total Dropped: 0")
+local s_farm = StatsTab:CreateLabel("Total Dropped: 0")
 local s_babies = StatsTab:CreateLabel("Babies in World: 0")
 
 StatsTab:CreateButton({
@@ -268,7 +273,6 @@ StatsTab:CreateButton({
 
 -- ==================== OTHERS TAB ====================
 OtherTab:CreateSection("🔧 Tools")
-
 OtherTab:CreateButton({
     Name = "🔍 Load Infinite Yield",
     Callback = function()
@@ -302,7 +306,7 @@ NotesTab:CreateSection("📝 About")
 NotesTab:CreateLabel("★ StarCalled Hub")
 NotesTab:CreateLabel("Made by: Jayden")
 NotesTab:CreateLabel("Game: Baby Pursuers")
-NotesTab:CreateLabel("Version: 1.1.0")
+NotesTab:CreateLabel("Version: 1.2.0")
 NotesTab:CreateSection("🕐 Session Info")
 local timeLbl = NotesTab:CreateLabel("🕐 Loading time...")
 
@@ -313,7 +317,6 @@ local function getTime()
     if success then return result end
     return "Time unavailable"
 end
-
 timeLbl:Set("🕐 Loaded at: " .. getTime())
 
 NotesTab:CreateButton({
@@ -382,6 +385,43 @@ task.spawn(function()
             farmCountLbl:Set("✅ Dropped: " .. farmCount)
             s_farm:Set("Total Dropped: " .. farmCount)
             task.wait(0.5)
+        end
+    end
+end)
+
+-- ==================== SPAM DROP/PICKUP LOOP ====================
+task.spawn(function()
+    while true do
+        task.wait(0.025)
+        if not spamRunning then continue end
+        
+        local character = player.Character
+        if not character then continue end
+        
+        local holding = false
+        local babyHitbox = nil
+        
+        for _, obj in ipairs(workspace:GetChildren()) do
+            if obj.Name:find("Baby") and obj:IsA("Model") then
+                local hitbox = obj:FindFirstChild("Hitbox")
+                if hitbox then
+                    local weld = hitbox:FindFirstChildOfClass("WeldConstraint") or 
+                                hitbox:FindFirstChildOfClass("RigidConstraint") or
+                                obj:FindFirstChildOfClass("WeldConstraint") or 
+                                obj:FindFirstChildOfClass("RigidConstraint")
+                    if weld then
+                        holding = true
+                        babyHitbox = hitbox
+                        break
+                    end
+                end
+            end
+        end
+        
+        if holding and babyHitbox then
+            GrabEvent:FireServer("Drop")
+            task.wait(0.02)
+            GrabEvent:FireServer("Grab", babyHitbox)
         end
     end
 end)
