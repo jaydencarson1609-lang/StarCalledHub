@@ -3,7 +3,6 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
 local VirtualInputManager = cloneref(game:GetService("VirtualInputManager"))
 local player = Players.LocalPlayer
 
@@ -74,6 +73,18 @@ local function getBabies()
         end
     end
     return found
+end
+
+local function getAnyBabyHitbox()
+    for _, obj in ipairs(workspace:GetChildren()) do
+        if obj.Name:find("Baby") and obj:IsA("Model") then
+            local hitbox = obj:FindFirstChild("Hitbox")
+            if hitbox then
+                return hitbox
+            end
+        end
+    end
+    return nil
 end
 
 local function getVent()
@@ -229,19 +240,27 @@ FarmTab:CreateSection("☠️ Shake to Death")
 FarmTab:CreateButton({
     Name = "Shake the Baby to Death",
     Callback = function()
-        Rayfield:Notify({ Title = "☠️ Shaking Baby", Content = "Spamming E key for 10 seconds...", Duration = 5 })
+        -- Grab hitbox once at start, reuse it the whole loop
+        local babyHitbox = getAnyBabyHitbox()
+
+        if not babyHitbox then
+            Rayfield:Notify({ Title = "❌ No Baby", Content = "No baby found in workspace!", Duration = 3 })
+            return
+        end
+
+        Rayfield:Notify({ Title = "☠️ Shaking Baby", Content = "Spamming E + remotes for 10 seconds...", Duration = 5 })
 
         local startTime = tick()
         while (tick() - startTime) < 10 do
             GrabEvent:FireServer("Drop")
             pressE()
             task.wait(0.012)
-            GrabEvent:FireServer("Grab")
+            GrabEvent:FireServer("Grab", babyHitbox)
             pressE()
             task.wait(0.012)
         end
 
-        Rayfield:Notify({ Title = "✅ Finished", Content = "10 seconds of shaking completed!", Duration = 3 })
+        Rayfield:Notify({ Title = "✅ Finished", Content = "10 seconds of shaking done!", Duration = 3 })
     end,
 })
 
@@ -293,7 +312,7 @@ NotesTab:CreateSection("📝 About")
 NotesTab:CreateLabel("★ StarCalled Hub")
 NotesTab:CreateLabel("Made by: Jayden")
 NotesTab:CreateLabel("Game: Baby Pursuers")
-NotesTab:CreateLabel("Version: 1.3.3")
+NotesTab:CreateLabel("Version: 1.3.4")
 
 local timeLbl = NotesTab:CreateLabel("🕐 Loading time...")
 local function getTime()
