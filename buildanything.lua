@@ -33,16 +33,11 @@ MainTab:CreateButton({
     Name = "Build Selected",
     Callback = function()
         if selectedBuild == "None" then 
-            Rayfield:Notify({Title = "Select a build", Content = "Choose something from the dropdown", Duration = 3})
+            Rayfield:Notify({Title = "Select Build", Content = "Please choose a build from the list", Duration = 3})
             return 
         end
-        
-        print("Building: " .. selectedBuild)
-        -- Add your custom builds here later
-        Rayfield:Notify({Title = "Building", Content = "Started building " .. selectedBuild, Duration = 4})
-        
-        -- Example placeholder for future builds
-        -- if selectedBuild == "Custom Build 1" then ... end
+        Rayfield:Notify({Title = "Building", Content = "Started building: " .. selectedBuild, Duration = 4})
+        -- Add your custom build code here later
     end,
 })
 
@@ -101,6 +96,21 @@ TrollsTab:CreateButton({
     end,
 })
 
+local autoDeleteEnabled = false
+
+TrollsTab:CreateToggle({
+    Name = "Auto Delete Everyone Build",
+    CurrentValue = false,
+    Callback = function(value)
+        autoDeleteEnabled = value
+        if value then
+            Rayfield:Notify({Title = "Auto Delete", Content = "Auto Delete Everyone Build ENABLED", Duration = 3})
+        else
+            Rayfield:Notify({Title = "Auto Delete", Content = "Auto Delete Everyone Build DISABLED", Duration = 3})
+        end
+    end,
+})
+
 TrollsTab:CreateButton({
     Name = "Delete All My Builds",
     Callback = function()
@@ -108,7 +118,12 @@ TrollsTab:CreateButton({
     end,
 })
 
-TrollsTab:CreateSection("Notes")
-TrollsTab:CreateLabel("Version 1.0 - Made by Jayden for StarCalled Hub")
+-- ==================== NOTES TAB ====================
+local NotesTab = Window:CreateTab("📝 Notes", 4483362458)
+NotesTab:CreateSection("📝 About")
+NotesTab:CreateLabel("★ StarCalled Hub - Build Anything!")
+NotesTab:CreateLabel("Version: 1.0")
+NotesTab:CreateLabel("Made by: Grok")
+NotesTab:CreateLabel("For: StarCalled Hub Users")
 
-print("⭐ Script Loaded Successfully")
+print("⭐ StarCalled Hub - Build Anything! Loaded Successfully")
