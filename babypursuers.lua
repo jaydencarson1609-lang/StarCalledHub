@@ -1,267 +1,393 @@
--- ✅ Baby Pursuers (Era 2) AUTOFARM - Fixed for Q Grab
--- Uses simulated Q press for proper grab/drop (matches game controls)
--- Auto cycle: Find baby → Teleport → Grab (Q) → Drop at target → Repeat
+-- StarCalled Hub | Baby Pursuers
+-- Auto Spawn + Auto Pick Up & Drop + Saved Pos + Shake Baby to Death
 
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local VirtualInputManager = game:GetService("VirtualInputManager")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
 
-local TARGET_POS = Vector3.new(-203, 31, 316)  -- Update if needed
-local holdingBaby = false
-local currentBaby = nil
-local scriptEnabled = true
-local isAutoFarming = false
-local babiesDropped = 0
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
--- ============== HUD ==============
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "BabyPursuersAutofarm"
-screenGui.ResetOnSpawn = false
-screenGui.Parent = player:WaitForChild("PlayerGui")
+local Window = Rayfield:CreateWindow({
+    Name = "★ StarCalled Hub",
+    LoadingTitle = "StarCalled Hub",
+    LoadingSubtitle = "Baby Pursuers • Auto Farm",
+    ConfigurationSaving = { Enabled = false },
+    Discord = { Enabled = false },
+    KeySystem = false,
+})
 
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 380, 0, 270)
-frame.Position = UDim2.new(0.5, -190, 0.08, 0)
-frame.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
-frame.BackgroundTransparency = 0.15
-frame.BorderSizePixel = 0
-frame.Parent = screenGui
-Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 14)
+local SpawnTab = Window:CreateTab("👶 Spawner", 4483362458)
+local FarmTab = Window:CreateTab("🔄 Farm", 4483362458)
+local StatsTab = Window:CreateTab("📊 Stats", 4483362458)
+local OtherTab = Window:CreateTab("🛠 Others", 4483362458)
+local NotesTab = Window:CreateTab("📝 Notes", 4483362458)
 
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 50)
-title.BackgroundTransparency = 1
-title.Text = "🍼 BABY PURSUERS AUTOFARM"
-title.TextColor3 = Color3.fromRGB(255, 45, 45)
-title.TextScaled = true
-title.Font = Enum.Font.GothamBold
-title.Parent = frame
+local spawnRunning = false
+local farmRunning = false
+local afkRunning = false
 
-local status = Instance.new("TextLabel")
-status.Size = UDim2.new(1, 0, 0, 65)
-status.Position = UDim2.new(0, 0, 0, 50)
-status.BackgroundTransparency = 1
-status.TextColor3 = Color3.fromRGB(255, 255, 255)
-status.TextScaled = true
-status.Font = Enum.Font.GothamSemibold
-status.Text = "Ready - Press T to Start"
-status.Parent = frame
+local spawnCount = 0
+local farmCount = 0
+local spawnDelay = 0.1
+local savedPosition = nil
 
-local statsLabel = Instance.new("TextLabel")
-statsLabel.Size = UDim2.new(1, 0, 0, 30)
-statsLabel.Position = UDim2.new(0, 0, 0, 115)
-statsLabel.BackgroundTransparency = 1
-statsLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
-statsLabel.TextScaled = true
-statsLabel.Font = Enum.Font.Gotham
-statsLabel.Text = "Babies Dropped: 0"
-statsLabel.Parent = frame
+local GrabEvent = ReplicatedStorage:WaitForChild("GrabEvent")
 
-local hint = Instance.new("TextLabel")
-hint.Size = UDim2.new(1, 0, 0, 30)
-hint.Position = UDim2.new(0, 0, 0, 145)
-hint.BackgroundTransparency = 1
-hint.TextColor3 = Color3.fromRGB(180, 180, 180)
-hint.TextScaled = true
-hint.Font = Enum.Font.Gotham
-hint.Text = "E = Manual | T = Toggle Auto | Uses Q Grab"
-hint.Parent = frame
-
--- Buttons
-local toggleBtn = Instance.new("TextButton")
-toggleBtn.Size = UDim2.new(0.9, 0, 0, 48)
-toggleBtn.Position = UDim2.new(0.05, 0, 0, 180)
-toggleBtn.BackgroundColor3 = Color3.fromRGB(40, 180, 40)
-toggleBtn.Text = "▶ START AUTOFARM"
-toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-toggleBtn.TextScaled = true
-toggleBtn.Font = Enum.Font.GothamBold
-toggleBtn.Parent = frame
-Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 10)
-
-local stopBtn = Instance.new("TextButton")
-stopBtn.Size = UDim2.new(0.9, 0, 0, 38)
-stopBtn.Position = UDim2.new(0.05, 0, 0, 235)
-stopBtn.BackgroundColor3 = Color3.fromRGB(190, 40, 40)
-stopBtn.Text = "🛑 STOP EVERYTHING"
-stopBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-stopBtn.TextScaled = true
-stopBtn.Font = Enum.Font.GothamBold
-stopBtn.Parent = frame
-Instance.new("UICorner", stopBtn).CornerRadius = UDim.new(0, 10)
-
--- Simulate Q key press (for grab/drop)
-local function pressQ()
-    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Q, false, game)
-    task.wait(0.08)
-    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Q, false, game)
-    task.wait(0.12)
-end
-
--- Find nearest valid baby
-local function findNearestBaby()
-    local char = player.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return nil, nil end
-    local myPos = char.HumanoidRootPart.Position
-
-    local bestBaby, bestDist = nil, math.huge
-
+local function getSpawners()
+    local found = {}
     for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("Model") and obj.Name:lower():find("^baby") then
-            local wanderScript = obj:FindFirstChild("Wander") or obj:FindFirstChildWhichIsA("Script")
-            if wanderScript and (wanderScript.Name == "Wander" or wanderScript.Name:lower():find("wander")) then
-                local root = obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChildWhichIsA("BasePart")
-                if root then
-                    local dist = (root.Position - myPos).Magnitude
-                    if dist < bestDist and dist < 750 then
-                        bestDist = dist
-                        bestBaby = obj
-                    end
+        if obj.Name == "Spawner" and obj:IsA("Model") then
+            local button = obj:FindFirstChild("Button")
+            if button then
+                local cd = button:FindFirstChildOfClass("ClickDetector")
+                if cd then
+                    table.insert(found, { model = obj, button = button, cd = cd })
                 end
             end
         end
     end
-    if bestBaby then
-        return bestBaby, bestBaby:FindFirstChild("HumanoidRootPart") or bestBaby:FindFirstChildWhichIsA("BasePart")
-    end
-    return nil, nil
+    return found
 end
 
--- Fast teleport
-local function fastTeleport(pos)
-    local char = player.Character
-    if not char then return false end
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return false end
-    root.CFrame = CFrame.new(pos + Vector3.new(0, 5.5, 0))
+local function getBabies()
+    local found = {}
+    for _, obj in ipairs(workspace:GetChildren()) do
+        if obj.Name:find("Baby") and obj:IsA("Model") then
+            local hitbox = obj:FindFirstChild("Hitbox")
+            if hitbox then
+                local isHeld = hitbox:FindFirstChildOfClass("WeldConstraint")
+                    or hitbox:FindFirstChildOfClass("RigidConstraint")
+                    or obj:FindFirstChildOfClass("WeldConstraint")
+                    or obj:FindFirstChildOfClass("RigidConstraint")
+                if not isHeld then
+                    table.insert(found, { model = obj, hitbox = hitbox })
+                end
+            end
+        end
+    end
+    return found
+end
+
+local function getAnyBabyHitbox()
+    for _, obj in ipairs(workspace:GetChildren()) do
+        if obj.Name:find("Baby") and obj:IsA("Model") then
+            local hitbox = obj:FindFirstChild("Hitbox")
+            if hitbox then
+                return hitbox
+            end
+        end
+    end
+    return nil
+end
+
+local function getVent()
+    return workspace:FindFirstChild("Vent")
+end
+
+local function teleportTo(part)
+    local character = player.Character
+    if not character then return false end
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return false end
+    hrp.CFrame = CFrame.new(part.Position + Vector3.new(0, 5, 0))
+    task.wait(0.2)
     return true
 end
 
--- Attempt to grab baby using Q
-local function attemptGrab(babyModel, babyRoot)
-    if not babyModel or not babyRoot then return false end
+-- ==================== SPAWN TAB ====================
+SpawnTab:CreateSection("👶 Auto Spawn Controls")
+local spawnStatusLbl = SpawnTab:CreateLabel("⚪ Status: Idle")
+local spawnerLbl = SpawnTab:CreateLabel("🔍 Spawners Found: 0")
 
-    fastTeleport(babyRoot.Position)
-    task.wait(0.25)
-    
-    pressQ()  -- Grab with Q
-    task.wait(0.2)
+SpawnTab:CreateToggle({
+    Name = "Auto Spawn Baby",
+    CurrentValue = false,
+    Flag = "AutoSpawnBaby",
+    Callback = function(val)
+        spawnRunning = val
+        if val then
+            spawnStatusLbl:Set("🟢 Running...")
+            Rayfield:Notify({ Title = "👶 Auto Spawn", Content = "Started!", Duration = 3 })
+        else
+            spawnStatusLbl:Set("⚪ Status: Idle")
+            Rayfield:Notify({ Title = "👶 Auto Spawn", Content = "Stopped.", Duration = 2 })
+        end
+    end,
+})
 
-    -- Check if we are now holding (simple check)
-    local char = player.Character
-    if char and babyModel.Parent == char then
-        currentBaby = babyModel
-        holdingBaby = true
-        return true
-    end
-    return false
-end
+SpawnTab:CreateSlider({
+    Name = "Spawn Speed",
+    Range = {1, 50},
+    Increment = 1,
+    Suffix = "x10ms",
+    CurrentValue = 10,
+    Flag = "SpawnDelay",
+    Callback = function(val) spawnDelay = val * 0.01 end,
+})
 
--- Drop using Q
-local function dropBaby()
-    if not currentBaby then return end
+SpawnTab:CreateButton({
+    Name = "Spawn Once (All Spawners)",
+    Callback = function()
+        local spawners = getSpawners()
+        for _, entry in ipairs(spawners) do
+            fireclickdetector(entry.cd)
+            spawnCount += 1
+            task.wait(0.05)
+        end
+        Rayfield:Notify({ Title = "Spawn Once", Content = "Clicked " .. #spawners .. " spawners!", Duration = 3 })
+    end,
+})
 
-    fastTeleport(TARGET_POS)
-    task.wait(0.35)
-    
-    pressQ()  -- Drop with Q
-    task.wait(0.3)
+SpawnTab:CreateSection("📈 Live Info")
+local spawnCountLbl = SpawnTab:CreateLabel("👶 Total Spawned: 0")
 
-    currentBaby:PivotTo(CFrame.new(TARGET_POS + Vector3.new(0, 4, 0))) -- extra safety
+-- ==================== FARM TAB ====================
+FarmTab:CreateSection("🔄 Auto Pick Up & Drop")
+local farmStatusLbl = FarmTab:CreateLabel("⚪ Farm: Idle")
+local babyCountLbl = FarmTab:CreateLabel("👶 Babies Found: 0")
+local farmCountLbl = FarmTab:CreateLabel("✅ Dropped: 0")
 
-    holdingBaby = false
-    currentBaby = nil
-    babiesDropped += 1
-    statsLabel.Text = "Babies Dropped: " .. babiesDropped
-end
+FarmTab:CreateToggle({
+    Name = "Auto Farm (Grab → Vent → Drop)",
+    CurrentValue = false,
+    Flag = "AutoFarm",
+    Callback = function(val)
+        farmRunning = val
+        if val then
+            local vent = getVent()
+            if not vent then
+                Rayfield:Notify({ Title = "❌ Error", Content = "Vent part not found!", Duration = 4 })
+                farmRunning = false
+                return
+            end
+            farmStatusLbl:Set("🟢 Farming...")
+            Rayfield:Notify({ Title = "🔄 Farm", Content = "Auto farm started!", Duration = 3 })
+        else
+            farmStatusLbl:Set("⚪ Farm: Idle")
+            Rayfield:Notify({ Title = "🔄 Farm", Content = "Stopped.", Duration = 2 })
+        end
+    end,
+})
 
--- One full cycle
-local function doOneCycle()
-    if not scriptEnabled then return end
-
-    if holdingBaby then
-        status.Text = "Holding → Dropping..."
-        dropBaby()
-        status.Text = "✅ Dropped! Next..."
-        task.wait(0.6)
-        return
-    end
-
-    local babyModel, babyRoot = findNearestBaby()
-    if not babyModel then
-        status.Text = "Searching for babies..."
-        return
-    end
-
-    status.Text = "Found baby → Grabbing..."
-    local success = attemptGrab(babyModel, babyRoot)
-
-    if success then
-        status.Text = "✅ Grabbed → Dropping"
-        task.wait(0.3)
-        dropBaby()
-        status.Text = "✅ Cycle complete!"
-    else
-        status.Text = "Grab failed → Skipping"
-        task.wait(0.9)
-    end
-end
-
--- Auto loop
-local function autoFarmLoop()
-    if isAutoFarming then return end
-    isAutoFarming = true
-    toggleBtn.Text = "⏹ STOP AUTOFARM"
-    toggleBtn.BackgroundColor3 = Color3.fromRGB(190, 40, 40)
-
-    while scriptEnabled and isAutoFarming do
-        doOneCycle()
+FarmTab:CreateButton({
+    Name = "Grab & Drop Once (Vent)",
+    Callback = function()
+        local babies = getBabies()
+        if #babies == 0 then
+            Rayfield:Notify({ Title = "❌ No Babies", Content = "No free babies found!", Duration = 3 })
+            return
+        end
+        local vent = getVent()
+        if not vent then return end
+        local baby = babies[1]
+        teleportTo(baby.hitbox)
+        GrabEvent:FireServer("Grab", baby.hitbox)
         task.wait(0.5)
-    end
+        teleportTo(vent)
+        task.wait(0.3)
+        GrabEvent:FireServer("Drop")
+        farmCount += 1
+        farmCountLbl:Set("✅ Dropped: " .. farmCount)
+    end,
+})
 
-    isAutoFarming = false
-    toggleBtn.Text = "▶ START AUTOFARM"
-    toggleBtn.BackgroundColor3 = Color3.fromRGB(40, 180, 40)
+FarmTab:CreateSection("📍 Drop at Saved Position")
+local savedPosLbl = FarmTab:CreateLabel("📍 No position saved yet")
+
+FarmTab:CreateButton({
+    Name = "📍 Save Current Position",
+    Callback = function()
+        local character = player.Character
+        local hrp = character and character:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        savedPosition = hrp.CFrame
+        local pos = hrp.Position
+        savedPosLbl:Set(string.format("📍 Saved: %.1f, %.1f, %.1f", pos.X, pos.Y, pos.Z))
+    end,
+})
+
+FarmTab:CreateButton({
+    Name = "👶 Grab Baby → Drop at Saved Pos",
+    Callback = function()
+        if not savedPosition then return end
+        local babies = getBabies()
+        if #babies == 0 then return end
+        local baby = babies[1]
+        local character = player.Character
+        local hrp = character and character:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+
+        teleportTo(baby.hitbox)
+        GrabEvent:FireServer("Grab", baby.hitbox)
+        task.wait(0.5)
+        hrp.CFrame = savedPosition
+        task.wait(0.3)
+        GrabEvent:FireServer("Drop")
+        farmCount += 1
+        farmCountLbl:Set("✅ Dropped: " .. farmCount)
+    end,
+})
+
+-- ==================== SHAKE BABY TO DEATH ====================
+FarmTab:CreateSection("☠️ Shake to Death")
+FarmTab:CreateButton({
+    Name = "☠️ Shake the Baby to Death",
+    Callback = function()
+        local babyHitbox = getAnyBabyHitbox()
+
+        if not babyHitbox then
+            Rayfield:Notify({ Title = "❌ No Baby", Content = "No baby found! Get near one first.", Duration = 3 })
+            return
+        end
+
+        Rayfield:Notify({ Title = "☠️ Shaking Baby", Content = "Spamming remotes for 5 seconds...", Duration = 5 })
+
+        local startTime = tick()
+        while (tick() - startTime) < 5 do
+            GrabEvent:FireServer("Drop")
+            task.wait(0.012)
+            GrabEvent:FireServer("Grab", babyHitbox)
+            task.wait(0.012)
+        end
+        GrabEvent:FireServer("Drop")
+
+        Rayfield:Notify({ Title = "✅ Finished", Content = "5 seconds of shaking done!", Duration = 3 })
+    end,
+})
+FarmTab:CreateLabel("⚠️ Do NOT hold the baby. Go near a baby and press this button!")
+
+-- ==================== STATS TAB ====================
+StatsTab:CreateSection("📊 Session Stats")
+local s_spawns = StatsTab:CreateLabel("Total Spawns: 0")
+local s_farm = StatsTab:CreateLabel("Total Dropped: 0")
+local s_babies = StatsTab:CreateLabel("Babies in World: 0")
+
+StatsTab:CreateButton({
+    Name = "🗑 Reset Stats",
+    Callback = function()
+        spawnCount = 0
+        farmCount = 0
+        spawnCountLbl:Set("👶 Total Spawned: 0")
+        farmCountLbl:Set("✅ Dropped: 0")
+        s_spawns:Set("Total Spawns: 0")
+        s_farm:Set("Total Dropped: 0")
+    end,
+})
+
+-- ==================== OTHERS TAB ====================
+OtherTab:CreateSection("🔧 Tools")
+OtherTab:CreateButton({
+    Name = "🔍 Load Infinite Yield",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
+    end,
+})
+
+OtherTab:CreateSection("🚶 Anti AFK")
+local afkStatusLbl = OtherTab:CreateLabel("⚪ Anti AFK: Off")
+OtherTab:CreateToggle({
+    Name = "Anti AFK",
+    CurrentValue = false,
+    Flag = "AntiAFK",
+    Callback = function(val)
+        afkRunning = val
+        if val then
+            afkStatusLbl:Set("🟢 Anti AFK: On")
+        else
+            afkStatusLbl:Set("⚪ Anti AFK: Off")
+        end
+    end,
+})
+
+-- ==================== NOTES TAB ====================
+NotesTab:CreateSection("📝 About")
+NotesTab:CreateLabel("★ StarCalled Hub")
+NotesTab:CreateLabel("Made by: Jayden")
+NotesTab:CreateLabel("Game: Baby Pursuers")
+NotesTab:CreateLabel("Version: 1.3.6")
+
+local timeLbl = NotesTab:CreateLabel("🕐 Loading time...")
+local function getTime()
+    return os.date("%A %d %B %Y • %H:%M:%S")
 end
+timeLbl:Set("🕐 Loaded at: " .. getTime())
 
--- Manual E
-UserInputService.InputBegan:Connect(function(input, gp)
-    if gp or not scriptEnabled then return end
-    if input.KeyCode == Enum.KeyCode.E then
-        doOneCycle()
+-- ==================== LOOPS ====================
+
+task.spawn(function()
+    while true do
+        task.wait(0.05)
+        local spawners = getSpawners()
+        spawnerLbl:Set("🔍 Spawners Found: " .. #spawners)
+        if spawnRunning then
+            for _, entry in ipairs(spawners) do
+                if not spawnRunning then break end
+                fireclickdetector(entry.cd)
+                spawnCount += 1
+                spawnCountLbl:Set("👶 Total Spawned: " .. spawnCount)
+                s_spawns:Set("Total Spawns: " .. spawnCount)
+                task.wait(spawnDelay)
+            end
+        else
+            task.wait(0.3)
+        end
     end
 end)
 
--- Toggle T / Button
-local function toggleAuto()
-    if isAutoFarming then
-        isAutoFarming = false
-        status.Text = "Auto paused"
-    else
-        task.spawn(autoFarmLoop)
-        status.Text = "Auto farming..."
-    end
-end
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        local babies = getBabies()
+        babyCountLbl:Set("👶 Babies Found: " .. #babies)
+        s_babies:Set("Babies in World: " .. #babies)
 
-toggleBtn.MouseButton1Click:Connect(toggleAuto)
+        if not farmRunning then task.wait(0.3) continue end
 
-UserInputService.InputBegan:Connect(function(input, gp)
-    if gp or not scriptEnabled then return end
-    if input.KeyCode == Enum.KeyCode.T then
-        toggleAuto()
+        local vent = getVent()
+        if not vent then task.wait(1) continue end
+        if #babies == 0 then
+            local spawners = getSpawners()
+            for _, entry in ipairs(spawners) do
+                if not farmRunning then break end
+                fireclickdetector(entry.cd)
+                spawnCount += 1
+                spawnCountLbl:Set("👶 Total Spawned: " .. spawnCount)
+                s_spawns:Set("Total Spawns: " .. spawnCount)
+                task.wait(0.05)
+            end
+            task.wait(0.3) continue
+        end
+
+        for _, baby in ipairs(babies) do
+            if not farmRunning then break end
+            if not baby.hitbox or not baby.hitbox.Parent then continue end
+            farmStatusLbl:Set("🚀 Grabbing " .. baby.model.Name)
+            teleportTo(baby.hitbox)
+            GrabEvent:FireServer("Grab", baby.hitbox)
+            task.wait(0.5)
+            farmStatusLbl:Set("📦 Dropping at Vent...")
+            teleportTo(vent)
+            task.wait(0.3)
+            GrabEvent:FireServer("Drop")
+            farmCount += 1
+            farmCountLbl:Set("✅ Dropped: " .. farmCount)
+            s_farm:Set("Total Dropped: " .. farmCount)
+            task.wait(0.5)
+        end
     end
 end)
 
--- Full stop
-stopBtn.MouseButton1Click:Connect(function()
-    scriptEnabled = false
-    isAutoFarming = false
-    status.Text = "🛑 STOPPED"
-    title.Text = "BABY PURSUERS AUTOFARM [DISABLED]"
-    print("Autofarm fully stopped.")
+task.spawn(function()
+    while true do
+        task.wait(60)
+        if not afkRunning then continue end
+        local character = player.Character
+        if not character then continue end
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, 0.1)
+            task.wait(0.1)
+            hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, -0.1)
+        end
+    end
 end)
-
-print("✅ Baby Pursuers (Era 2) Autofarm Loaded!")
-print("T = Toggle Auto | E = Manual Cycle | Uses proper Q grab")
-status.Text = "Ready - Press T to start autofarm"
