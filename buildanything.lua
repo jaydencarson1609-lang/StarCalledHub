@@ -12,114 +12,13 @@ local Window = Rayfield:CreateWindow({
     KeySystem = false,
 })
 
--- ==================== DYNAMIC BUILD LOADER ====================
-local BuildsFolder = {}
-local GITHUB_USER = "jaydencarson1609-lang"
-local GITHUB_REPO = "StarCalledHub"
-local BUILDS_PATH = "Builds"
-
-local function LoadBuildsFromGitHub()
-    BuildsFolder = {}
-    local buildOptions = {"None"}
-
-    local buildFiles = {"Tower.lua"}
-
-    for _, filename in ipairs(buildFiles) do
-        local url = "https://raw.githubusercontent.com/" .. GITHUB_USER .. "/" .. GITHUB_REPO .. "/main/" .. BUILDS_PATH .. "/" .. filename
-        
-        local success, response = pcall(function()
-            return game:HttpGet(url, true)
-        end)
-
-        if success and response and response ~= "404: Not Found" then
-            local loadSuccess, buildData = pcall(function()
-                return loadstring(response)()
-            end)
-            
-            if loadSuccess and buildData and type(buildData) == "table" and #buildData > 0 then
-                local buildName = filename:gsub("%.lua$", "")
-                BuildsFolder[buildName] = buildData
-                table.insert(buildOptions, buildName)
-                print("✅ Loaded:", buildName, "|", #buildData, "blocks")
-            else
-                warn("❌ Failed to parse:", filename)
-            end
-        else
-            warn("❌ Download failed for:", filename)
-        end
-    end
-
-    return buildOptions
-end
-
-local buildOptions = LoadBuildsFromGitHub()
-
--- ==================== MAIN TAB ====================
+-- MAIN TAB (with Auto Delete)
 local MainTab = Window:CreateTab("🛠️ Main", 4483362458)
-MainTab:CreateSection("Build System")
-
-local selectedBuildName = "None"
-local selectedBuildData = nil
-
-MainTab:CreateDropdown({
-    Name = "What do you want to build?",
-    Options = buildOptions,
-    Default = "None",
-    Callback = function(value)
-        selectedBuildName = value
-        selectedBuildData = BuildsFolder[value]
-        print("📌 Selected build updated to:", value)
-        if selectedBuildData then
-            print("   → Data loaded:", #selectedBuildData, "blocks")
-        end
-    end,
-})
-
-MainTab:CreateButton({
-    Name = "🚀 Build Selected",
-    Callback = function()
-        print("Build button clicked - Current selection:", selectedBuildName)
-        
-        if selectedBuildName == "None" or not selectedBuildData then 
-            Rayfield:Notify({Title = "Error", Content = "Please select 'Tower' from the dropdown!", Duration = 4})
-            return 
-        end
-
-        Rayfield:Notify({Title = "Building...", Content = selectedBuildName, Duration = 4})
-
-        local PlaceEvent = game:GetService("ReplicatedStorage").Events:FindFirstChild("PlaceBlock") 
-                        or game:GetService("ReplicatedStorage").Events:FindFirstChild("BuildBlock")
-
-        if not PlaceEvent then
-            Rayfield:Notify({Title = "Error", Content = "Cannot find build event!", Duration = 5})
-            return
-        end
-
-        local count = 0
-        for i, blockData in ipairs(selectedBuildData) do
-            task.spawn(function()
-                pcall(function()
-                    local blockType = blockData[1]
-                    local cframe = blockData[2]
-                    local parent = blockData[3] or workspace.Baseplate
-                    PlaceEvent:InvokeServer(blockType, cframe, parent)
-                    count += 1
-                end)
-            end)
-            if i % 6 == 0 then task.wait(0.04) end
-        end
-
-        Rayfield:Notify({Title = "✅ Success", Content = selectedBuildName .. " finished!", Duration = 5})
-    end,
-})
-
--- TROLLS TAB (with Auto Delete)
-local TrollsTab = Window:CreateTab("😈 Trolls", 4483362458)
-TrollsTab:CreateSection("Troll Controls")
+MainTab:CreateSection("Main Controls")
 
 local targetUsername = ""
 
-TrollsTab:CreateInput({
+MainTab:CreateInput({
     Name = "Delete Specific User's Builds",
     PlaceholderText = "Type username here",
     RemoveTextAfterFocusLost = false,
@@ -128,7 +27,7 @@ TrollsTab:CreateInput({
     end,
 })
 
-TrollsTab:CreateButton({
+MainTab:CreateButton({
     Name = "Delete User Build",
     Callback = function()
         if targetUsername == "" then return end
@@ -146,7 +45,7 @@ TrollsTab:CreateButton({
     end,
 })
 
-TrollsTab:CreateButton({
+MainTab:CreateButton({
     Name = "🗑️ Delete Everyone's Builds",
     Callback = function()
         local Built = workspace:FindFirstChild("Built")
@@ -164,7 +63,7 @@ TrollsTab:CreateButton({
 
 local autoDeleteConnection = nil
 
-TrollsTab:CreateToggle({
+MainTab:CreateToggle({
     Name = "Auto Delete Everyone's Builds",
     CurrentValue = false,
     Callback = function(value)
@@ -194,7 +93,7 @@ TrollsTab:CreateToggle({
     end,
 })
 
-TrollsTab:CreateButton({
+MainTab:CreateButton({
     Name = "Delete All My Builds",
     Callback = function()
         pcall(function()
