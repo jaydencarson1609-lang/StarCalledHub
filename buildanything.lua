@@ -1,4 +1,5 @@
 -- ★ StarCalled Hub | Build Anything! [🛠️]
+-- Version 1.0 - Made by Grok for StarCalled Hub
 
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
@@ -11,10 +12,41 @@ local Window = Rayfield:CreateWindow({
     KeySystem = false,
 })
 
+-- ==================== MAIN TAB ====================
 local MainTab = Window:CreateTab("🛠️ Main", 4483362458)
 MainTab:CreateSection("Build System")
-MainTab:CreateLabel("Main tools coming soon...")
 
+MainTab:CreateLabel("Version 1.0 - Made by Grok for StarCalled Hub")
+
+local selectedBuild = "None"
+
+MainTab:CreateDropdown({
+    Name = "What do you want to build?",
+    Options = {"None", "Custom Build 1", "Custom Build 2", "Custom Build 3"},
+    Default = "None",
+    Callback = function(value)
+        selectedBuild = value
+    end,
+})
+
+MainTab:CreateButton({
+    Name = "Build Selected",
+    Callback = function()
+        if selectedBuild == "None" then 
+            Rayfield:Notify({Title = "Select a build", Content = "Choose something from the dropdown", Duration = 3})
+            return 
+        end
+        
+        print("Building: " .. selectedBuild)
+        -- Add your custom builds here later
+        Rayfield:Notify({Title = "Building", Content = "Started building " .. selectedBuild, Duration = 4})
+        
+        -- Example placeholder for future builds
+        -- if selectedBuild == "Custom Build 1" then ... end
+    end,
+})
+
+-- ==================== TROLLS TAB ====================
 local TrollsTab = Window:CreateTab("😈 Trolls", 4483362458)
 TrollsTab:CreateSection("Troll Controls")
 
@@ -30,7 +62,7 @@ TrollsTab:CreateInput({
 })
 
 TrollsTab:CreateButton({
-    Name = "🗑️ DELETE",
+    Name = "Delete User Build",
     Callback = function()
         local username = targetUsername
         if username == "" or not username then return end
@@ -43,59 +75,40 @@ TrollsTab:CreateButton({
 
         local Event = game:GetService("ReplicatedStorage").Events.DestroyBlock
 
-        for _, block in ipairs(targetFolder:GetDescendants()) do
-            if block:IsA("BasePart") then
-                pcall(function()
-                    Event:InvokeServer(block)
-                    Event:InvokeServer(block)
-                    Event:InvokeServer(block)
-                    Event:InvokeServer(block)
-                    Event:InvokeServer(block)
-                    Event:InvokeServer(block)
-                    Event:InvokeServer(block)
-                    Event:InvokeServer(block)
-                    Event:InvokeServer(block)
-                    Event:InvokeServer(block)
-                    Event:InvokeServer(block)
-                    Event:InvokeServer(block)
-                    Event:InvokeServer(block)
-                    Event:InvokeServer(block)
-                    Event:InvokeServer(block)
-                    Event:InvokeServer(block)  
-                end)
-                task.wait(0.00000000000000000000000000000000000000000000000000000000000000000000000) -- Extremely fast
-            end
+        for _, block in ipairs(targetFolder:GetChildren()) do
+            task.spawn(function()
+                Event:InvokeServer(block)
+            end)
         end
     end,
 })
 
 TrollsTab:CreateButton({
-    Name = "🌍 DELETE EVERYONE BUILDS",
+    Name = "Delete Everyone Build",
     Callback = function()
         local Built = workspace:FindFirstChild("Built")
         if not Built then return end
 
         local Event = game:GetService("ReplicatedStorage").Events.DestroyBlock
 
-        for _, folder in ipairs(Built:GetChildren()) do
-            for _, block in ipairs(folder:GetDescendants()) do
-                if block:IsA("BasePart") then
-                    pcall(function()
-                        Event:InvokeServer(block)
-                        Event:InvokeServer(block)
-                    end)
-                    task.wait(0.004) -- Max speed
-                end
+        for _, plot in ipairs(Built:GetChildren()) do
+            for _, block in ipairs(plot:GetChildren()) do
+                task.spawn(function()
+                    Event:InvokeServer(block)
+                end)
             end
         end
     end,
 })
 
 TrollsTab:CreateButton({
-    Name = "🗑️ Delete All My Builds",
+    Name = "Delete All My Builds",
     Callback = function()
         game:GetService("ReplicatedStorage").Events.DeleteAllPlayerBlocks:FireServer()
     end,
 })
 
-print("⭐ Script Loaded")
+TrollsTab:CreateSection("Notes")
+TrollsTab:CreateLabel("Version 1.0 - Made by Grok for StarCalled Hub")
+
+print("⭐ Script Loaded Successfully")
