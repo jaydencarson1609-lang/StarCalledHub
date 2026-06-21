@@ -1,129 +1,267 @@
--- ★ StarCalled Hub | Build Anything! [🛠️]
--- Version 1.0 - Made by Grok for StarCalled Hub
+-- ✅ Baby Pursuers (Era 2) AUTOFARM - Fixed for Q Grab
+-- Uses simulated Q press for proper grab/drop (matches game controls)
+-- Auto cycle: Find baby → Teleport → Grab (Q) → Drop at target → Repeat
 
-local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local player = Players.LocalPlayer
 
-local Window = Rayfield:CreateWindow({
-    Name = "★ StarCalled Hub - Build Anything! 🛠️",
-    LoadingTitle = "StarCalled Hub",
-    LoadingSubtitle = "Build Anything!",
-    ConfigurationSaving = { Enabled = false },
-    Discord = { Enabled = false },
-    KeySystem = false,
-})
+local TARGET_POS = Vector3.new(-203, 31, 316)  -- Update if needed
+local holdingBaby = false
+local currentBaby = nil
+local scriptEnabled = true
+local isAutoFarming = false
+local babiesDropped = 0
 
--- ==================== MAIN TAB ====================
-local MainTab = Window:CreateTab("🛠️ Main", 4483362458)
-MainTab:CreateSection("Build System")
+-- ============== HUD ==============
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "BabyPursuersAutofarm"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
 
-MainTab:CreateLabel("Version 1.0 - Made by Grok for StarCalled Hub")
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 380, 0, 270)
+frame.Position = UDim2.new(0.5, -190, 0.08, 0)
+frame.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
+frame.BackgroundTransparency = 0.15
+frame.BorderSizePixel = 0
+frame.Parent = screenGui
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 14)
 
-local selectedBuild = "None"
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 50)
+title.BackgroundTransparency = 1
+title.Text = "🍼 BABY PURSUERS AUTOFARM"
+title.TextColor3 = Color3.fromRGB(255, 45, 45)
+title.TextScaled = true
+title.Font = Enum.Font.GothamBold
+title.Parent = frame
 
-MainTab:CreateDropdown({
-    Name = "What do you want to build?",
-    Options = {"None", "Custom Build 1", "Custom Build 2", "Custom Build 3"},
-    Default = "None",
-    Callback = function(value)
-        selectedBuild = value
-    end,
-})
+local status = Instance.new("TextLabel")
+status.Size = UDim2.new(1, 0, 0, 65)
+status.Position = UDim2.new(0, 0, 0, 50)
+status.BackgroundTransparency = 1
+status.TextColor3 = Color3.fromRGB(255, 255, 255)
+status.TextScaled = true
+status.Font = Enum.Font.GothamSemibold
+status.Text = "Ready - Press T to Start"
+status.Parent = frame
 
-MainTab:CreateButton({
-    Name = "Build Selected",
-    Callback = function()
-        if selectedBuild == "None" then 
-            Rayfield:Notify({Title = "Select Build", Content = "Please choose a build from the list", Duration = 3})
-            return 
-        end
-        Rayfield:Notify({Title = "Building", Content = "Started building: " .. selectedBuild, Duration = 4})
-        -- Add your custom build code here later
-    end,
-})
+local statsLabel = Instance.new("TextLabel")
+statsLabel.Size = UDim2.new(1, 0, 0, 30)
+statsLabel.Position = UDim2.new(0, 0, 0, 115)
+statsLabel.BackgroundTransparency = 1
+statsLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
+statsLabel.TextScaled = true
+statsLabel.Font = Enum.Font.Gotham
+statsLabel.Text = "Babies Dropped: 0"
+statsLabel.Parent = frame
 
--- ==================== TROLLS TAB ====================
-local TrollsTab = Window:CreateTab("😈 Trolls", 4483362458)
-TrollsTab:CreateSection("Troll Controls")
+local hint = Instance.new("TextLabel")
+hint.Size = UDim2.new(1, 0, 0, 30)
+hint.Position = UDim2.new(0, 0, 0, 145)
+hint.BackgroundTransparency = 1
+hint.TextColor3 = Color3.fromRGB(180, 180, 180)
+hint.TextScaled = true
+hint.Font = Enum.Font.Gotham
+hint.Text = "E = Manual | T = Toggle Auto | Uses Q Grab"
+hint.Parent = frame
 
-local targetUsername = ""
+-- Buttons
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(0.9, 0, 0, 48)
+toggleBtn.Position = UDim2.new(0.05, 0, 0, 180)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(40, 180, 40)
+toggleBtn.Text = "▶ START AUTOFARM"
+toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleBtn.TextScaled = true
+toggleBtn.Font = Enum.Font.GothamBold
+toggleBtn.Parent = frame
+Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 10)
 
-TrollsTab:CreateInput({
-    Name = "Delete Specific User's Builds",
-    PlaceholderText = "Type username here",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(text)
-        targetUsername = text
-    end,
-})
+local stopBtn = Instance.new("TextButton")
+stopBtn.Size = UDim2.new(0.9, 0, 0, 38)
+stopBtn.Position = UDim2.new(0.05, 0, 0, 235)
+stopBtn.BackgroundColor3 = Color3.fromRGB(190, 40, 40)
+stopBtn.Text = "🛑 STOP EVERYTHING"
+stopBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+stopBtn.TextScaled = true
+stopBtn.Font = Enum.Font.GothamBold
+stopBtn.Parent = frame
+Instance.new("UICorner", stopBtn).CornerRadius = UDim.new(0, 10)
 
-TrollsTab:CreateButton({
-    Name = "Delete User Build",
-    Callback = function()
-        local username = targetUsername
-        if username == "" or not username then return end
+-- Simulate Q key press (for grab/drop)
+local function pressQ()
+    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Q, false, game)
+    task.wait(0.08)
+    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Q, false, game)
+    task.wait(0.12)
+end
 
-        local Built = workspace:FindFirstChild("Built")
-        if not Built then return end
+-- Find nearest valid baby
+local function findNearestBaby()
+    local char = player.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return nil, nil end
+    local myPos = char.HumanoidRootPart.Position
 
-        local targetFolder = Built:FindFirstChild(username)
-        if not targetFolder then return end
+    local bestBaby, bestDist = nil, math.huge
 
-        local Event = game:GetService("ReplicatedStorage").Events.DestroyBlock
-
-        for _, block in ipairs(targetFolder:GetChildren()) do
-            task.spawn(function()
-                Event:InvokeServer(block)
-            end)
-        end
-    end,
-})
-
-TrollsTab:CreateButton({
-    Name = "Delete Everyone Build",
-    Callback = function()
-        local Built = workspace:FindFirstChild("Built")
-        if not Built then return end
-
-        local Event = game:GetService("ReplicatedStorage").Events.DestroyBlock
-
-        for _, plot in ipairs(Built:GetChildren()) do
-            for _, block in ipairs(plot:GetChildren()) do
-                task.spawn(function()
-                    Event:InvokeServer(block)
-                end)
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") and obj.Name:lower():find("^baby") then
+            local wanderScript = obj:FindFirstChild("Wander") or obj:FindFirstChildWhichIsA("Script")
+            if wanderScript and (wanderScript.Name == "Wander" or wanderScript.Name:lower():find("wander")) then
+                local root = obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChildWhichIsA("BasePart")
+                if root then
+                    local dist = (root.Position - myPos).Magnitude
+                    if dist < bestDist and dist < 750 then
+                        bestDist = dist
+                        bestBaby = obj
+                    end
+                end
             end
         end
-    end,
-})
+    end
+    if bestBaby then
+        return bestBaby, bestBaby:FindFirstChild("HumanoidRootPart") or bestBaby:FindFirstChildWhichIsA("BasePart")
+    end
+    return nil, nil
+end
 
-local autoDeleteEnabled = false
+-- Fast teleport
+local function fastTeleport(pos)
+    local char = player.Character
+    if not char then return false end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return false end
+    root.CFrame = CFrame.new(pos + Vector3.new(0, 5.5, 0))
+    return true
+end
 
-TrollsTab:CreateToggle({
-    Name = "Auto Delete Everyone Build",
-    CurrentValue = false,
-    Callback = function(value)
-        autoDeleteEnabled = value
-        if value then
-            Rayfield:Notify({Title = "Auto Delete", Content = "Auto Delete Everyone Build ENABLED", Duration = 3})
-        else
-            Rayfield:Notify({Title = "Auto Delete", Content = "Auto Delete Everyone Build DISABLED", Duration = 3})
-        end
-    end,
-})
+-- Attempt to grab baby using Q
+local function attemptGrab(babyModel, babyRoot)
+    if not babyModel or not babyRoot then return false end
 
-TrollsTab:CreateButton({
-    Name = "Delete All My Builds",
-    Callback = function()
-        game:GetService("ReplicatedStorage").Events.DeleteAllPlayerBlocks:FireServer()
-    end,
-})
+    fastTeleport(babyRoot.Position)
+    task.wait(0.25)
+    
+    pressQ()  -- Grab with Q
+    task.wait(0.2)
 
--- ==================== NOTES TAB ====================
-local NotesTab = Window:CreateTab("📝 Notes", 4483362458)
-NotesTab:CreateSection("📝 About")
-NotesTab:CreateLabel("★ StarCalled Hub - Build Anything!")
-NotesTab:CreateLabel("Version: 1.0")
-NotesTab:CreateLabel("Made by: Grok")
-NotesTab:CreateLabel("For: StarCalled Hub Users")
+    -- Check if we are now holding (simple check)
+    local char = player.Character
+    if char and babyModel.Parent == char then
+        currentBaby = babyModel
+        holdingBaby = true
+        return true
+    end
+    return false
+end
 
-print("⭐ StarCalled Hub - Build Anything! Loaded Successfully")
+-- Drop using Q
+local function dropBaby()
+    if not currentBaby then return end
+
+    fastTeleport(TARGET_POS)
+    task.wait(0.35)
+    
+    pressQ()  -- Drop with Q
+    task.wait(0.3)
+
+    currentBaby:PivotTo(CFrame.new(TARGET_POS + Vector3.new(0, 4, 0))) -- extra safety
+
+    holdingBaby = false
+    currentBaby = nil
+    babiesDropped += 1
+    statsLabel.Text = "Babies Dropped: " .. babiesDropped
+end
+
+-- One full cycle
+local function doOneCycle()
+    if not scriptEnabled then return end
+
+    if holdingBaby then
+        status.Text = "Holding → Dropping..."
+        dropBaby()
+        status.Text = "✅ Dropped! Next..."
+        task.wait(0.6)
+        return
+    end
+
+    local babyModel, babyRoot = findNearestBaby()
+    if not babyModel then
+        status.Text = "Searching for babies..."
+        return
+    end
+
+    status.Text = "Found baby → Grabbing..."
+    local success = attemptGrab(babyModel, babyRoot)
+
+    if success then
+        status.Text = "✅ Grabbed → Dropping"
+        task.wait(0.3)
+        dropBaby()
+        status.Text = "✅ Cycle complete!"
+    else
+        status.Text = "Grab failed → Skipping"
+        task.wait(0.9)
+    end
+end
+
+-- Auto loop
+local function autoFarmLoop()
+    if isAutoFarming then return end
+    isAutoFarming = true
+    toggleBtn.Text = "⏹ STOP AUTOFARM"
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(190, 40, 40)
+
+    while scriptEnabled and isAutoFarming do
+        doOneCycle()
+        task.wait(0.5)
+    end
+
+    isAutoFarming = false
+    toggleBtn.Text = "▶ START AUTOFARM"
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(40, 180, 40)
+end
+
+-- Manual E
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp or not scriptEnabled then return end
+    if input.KeyCode == Enum.KeyCode.E then
+        doOneCycle()
+    end
+end)
+
+-- Toggle T / Button
+local function toggleAuto()
+    if isAutoFarming then
+        isAutoFarming = false
+        status.Text = "Auto paused"
+    else
+        task.spawn(autoFarmLoop)
+        status.Text = "Auto farming..."
+    end
+end
+
+toggleBtn.MouseButton1Click:Connect(toggleAuto)
+
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp or not scriptEnabled then return end
+    if input.KeyCode == Enum.KeyCode.T then
+        toggleAuto()
+    end
+end)
+
+-- Full stop
+stopBtn.MouseButton1Click:Connect(function()
+    scriptEnabled = false
+    isAutoFarming = false
+    status.Text = "🛑 STOPPED"
+    title.Text = "BABY PURSUERS AUTOFARM [DISABLED]"
+    print("Autofarm fully stopped.")
+end)
+
+print("✅ Baby Pursuers (Era 2) Autofarm Loaded!")
+print("T = Toggle Auto | E = Manual Cycle | Uses proper Q grab")
+status.Text = "Ready - Press T to start autofarm"
