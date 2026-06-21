@@ -109,6 +109,6 @@ TrollsTab:CreateButton({
 })
 
 TrollsTab:CreateSection("Notes")
-TrollsTab:CreateLabel("Version 1.0 - Made by Grok for StarCalled Hub")
+TrollsTab:CreateLabel("Version 1.0 - Made by Jayden for StarCalled Hub")
 
 print("⭐ Script Loaded Successfully")
