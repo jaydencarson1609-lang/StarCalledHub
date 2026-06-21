@@ -33,10 +33,10 @@ MainTab:CreateButton({
     Name = "Build Selected",
     Callback = function()
         if selectedBuild == "None" then 
-            Rayfield:Notify({Title = "Select Build", Content = "Please choose a build from the list", Duration = 3})
+            Rayfield:Notify({Title = "Select Build", Content = "Please choose something from the dropdown", Duration = 3})
             return 
         end
-        Rayfield:Notify({Title = "Building", Content = "Started building: " .. selectedBuild, Duration = 4})
+        Rayfield:Notify({Title = "Building", Content = "Started: " .. selectedBuild, Duration = 4})
     end,
 })
 
@@ -95,17 +95,36 @@ TrollsTab:CreateButton({
     end,
 })
 
-local autoDeleteEnabled = false
+local autoDeleteConnection = nil
 
 TrollsTab:CreateToggle({
     Name = "Auto Delete Everyone Build",
     CurrentValue = false,
     Callback = function(value)
-        autoDeleteEnabled = value
         if value then
-            Rayfield:Notify({Title = "Auto Delete", Content = "Enabled - Deleting everyone's builds", Duration = 3})
+            autoDeleteConnection = task.spawn(function()
+                while true do
+                    local Built = workspace:FindFirstChild("Built")
+                    if Built then
+                        local Event = game:GetService("ReplicatedStorage").Events.DestroyBlock
+                        for _, plot in ipairs(Built:GetChildren()) do
+                            for _, block in ipairs(plot:GetChildren()) do
+                                pcall(function()
+                                    Event:InvokeServer(block)
+                                end)
+                            end
+                        end
+                    end
+                    task.wait(0.1) -- Fast loop
+                end
+            end)
+            Rayfield:Notify({Title = "Auto Delete", Content = "Auto Delete Everyone Build ENABLED", Duration = 3})
         else
-            Rayfield:Notify({Title = "Auto Delete", Content = "Disabled", Duration = 3})
+            if autoDeleteConnection then
+                task.cancel(autoDeleteConnection)
+                autoDeleteConnection = nil
+            end
+            Rayfield:Notify({Title = "Auto Delete", Content = "Auto Delete Everyone Build DISABLED", Duration = 3})
         end
     end,
 })
@@ -123,6 +142,6 @@ NotesTab:CreateSection("📝 About")
 NotesTab:CreateLabel("★ StarCalled Hub - Build Anything!")
 NotesTab:CreateLabel("Version: 1.0")
 NotesTab:CreateLabel("Made by: Jayden")
-NotesTab:CreateLabel("For StarCalled Hub")
+NotesTab:CreateLabel("For: StarCalled Hub")
 
 print("⭐ StarCalled Hub - Build Anything! Loaded Successfully")
