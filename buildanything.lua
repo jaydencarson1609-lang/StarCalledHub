@@ -1,5 +1,5 @@
 -- ★ StarCalled Hub | Build Anything! [🛠️]
--- Version 1.5 - Fixed Selection + Auto Delete
+-- Version 1.6 - Fixed Selection Bug
 
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
@@ -40,12 +40,12 @@ local function LoadBuildsFromGitHub()
                 local buildName = filename:gsub("%.lua$", "")
                 BuildsFolder[buildName] = buildData
                 table.insert(buildOptions, buildName)
-                print("✅ Loaded build:", buildName, "| Blocks:", #buildData)
+                print("✅ Loaded:", buildName, "|", #buildData, "blocks")
             else
-                warn("❌ Failed to load build data from:", filename)
+                warn("❌ Failed to parse:", filename)
             end
         else
-            warn("❌ Could not download:", filename)
+            warn("❌ Download failed for:", filename)
         end
     end
 
@@ -68,8 +68,9 @@ MainTab:CreateDropdown({
     Callback = function(value)
         selectedBuildName = value
         selectedBuildData = BuildsFolder[value]
+        print("📌 Selected build updated to:", value)
         if selectedBuildData then
-            print("📌 Selected:", value, "- Blocks:", #selectedBuildData)
+            print("   → Data loaded:", #selectedBuildData, "blocks")
         end
     end,
 })
@@ -77,8 +78,10 @@ MainTab:CreateDropdown({
 MainTab:CreateButton({
     Name = "🚀 Build Selected",
     Callback = function()
+        print("Build button clicked - Current selection:", selectedBuildName)
+        
         if selectedBuildName == "None" or not selectedBuildData then 
-            Rayfield:Notify({Title = "Error", Content = "Please select Tower from the dropdown!", Duration = 4})
+            Rayfield:Notify({Title = "Error", Content = "Please select 'Tower' from the dropdown!", Duration = 4})
             return 
         end
 
@@ -88,10 +91,11 @@ MainTab:CreateButton({
                         or game:GetService("ReplicatedStorage").Events:FindFirstChild("BuildBlock")
 
         if not PlaceEvent then
-            Rayfield:Notify({Title = "Error", Content = "PlaceBlock event not found!", Duration = 5})
+            Rayfield:Notify({Title = "Error", Content = "Cannot find build event!", Duration = 5})
             return
         end
 
+        local count = 0
         for i, blockData in ipairs(selectedBuildData) do
             task.spawn(function()
                 pcall(function()
@@ -99,6 +103,7 @@ MainTab:CreateButton({
                     local cframe = blockData[2]
                     local parent = blockData[3] or workspace.Baseplate
                     PlaceEvent:InvokeServer(blockType, cframe, parent)
+                    count += 1
                 end)
             end)
             if i % 6 == 0 then task.wait(0.04) end
@@ -108,7 +113,7 @@ MainTab:CreateButton({
     end,
 })
 
--- ==================== TROLLS TAB ====================
+-- TROLLS TAB (with Auto Delete)
 local TrollsTab = Window:CreateTab("😈 Trolls", 4483362458)
 TrollsTab:CreateSection("Troll Controls")
 
@@ -182,10 +187,8 @@ TrollsTab:CreateToggle({
             end)
             Rayfield:Notify({Title = "Auto Delete", Content = "ENABLED", Duration = 3})
         else
-            if autoDeleteConnection then
-                task.cancel(autoDeleteConnection)
-                autoDeleteConnection = nil
-            end
+            if autoDeleteConnection then task.cancel(autoDeleteConnection) end
+            autoDeleteConnection = nil
             Rayfield:Notify({Title = "Auto Delete", Content = "DISABLED", Duration = 3})
         end
     end,
@@ -200,10 +203,10 @@ TrollsTab:CreateButton({
     end,
 })
 
--- ==================== NOTES TAB ====================
+-- NOTES TAB
 local NotesTab = Window:CreateTab("📝 Notes", 4483362458)
 NotesTab:CreateSection("Info")
 NotesTab:CreateLabel("★ StarCalled Hub - Build Anything!")
-NotesTab:CreateLabel("Version 1.5")
+NotesTab:CreateLabel("Version 1.6 - Selection Fixed")
 
-print("⭐ StarCalled Hub Loaded! Press F9 to see console messages.")
+print("⭐ StarCalled Hub Loaded! Open F9 console for debug info.")
