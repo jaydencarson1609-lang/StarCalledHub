@@ -25,6 +25,7 @@ local NotesTab = Window:CreateTab("📝 Notes", 4483362458)
 local spawnRunning = false
 local farmRunning = false
 local afkRunning = false
+local antiSitRunning = false
 
 local spawnCount = 0
 local farmCount = 0
@@ -92,6 +93,12 @@ local function teleportTo(part)
     hrp.CFrame = CFrame.new(part.Position + Vector3.new(0, 5, 0))
     task.wait(0.2)
     return true
+end
+
+local function getHumanoid()
+    local character = player.Character
+    if not character then return nil end
+    return character:FindFirstChildOfClass("Humanoid")
 end
 
 -- ==================== SPAWN TAB ====================
@@ -165,6 +172,23 @@ FarmTab:CreateToggle({
         else
             farmStatusLbl:Set("⚪ Farm: Idle")
             Rayfield:Notify({ Title = "🔄 Farm", Content = "Stopped.", Duration = 2 })
+        end
+    end,
+})
+
+FarmTab:CreateSection("🪑 Anti-Sit")
+local antiSitLbl = FarmTab:CreateLabel("⚪ Anti-Sit: Off")
+FarmTab:CreateToggle({
+    Name = "Anti-Sit",
+    CurrentValue = false,
+    Flag = "AntiSit",
+    Callback = function(val)
+        antiSitRunning = val
+        if val then
+            antiSitLbl:Set("🟢 Anti-Sit: On")
+            Rayfield:Notify({ Title = "🪑 Anti-Sit", Content = "Player will not sit!", Duration = 3 })
+        else
+            antiSitLbl:Set("⚪ Anti-Sit: Off")
         end
     end,
 })
@@ -304,7 +328,7 @@ NotesTab:CreateSection("📝 About")
 NotesTab:CreateLabel("★ StarCalled Hub")
 NotesTab:CreateLabel("Made by: Jayden")
 NotesTab:CreateLabel("Game: Baby Pursuers")
-NotesTab:CreateLabel("Version: 1.3.6")
+NotesTab:CreateLabel("Version: 1.3.7")
 
 local timeLbl = NotesTab:CreateLabel("🕐 Loading time...")
 local function getTime()
@@ -373,6 +397,18 @@ task.spawn(function()
             farmCountLbl:Set("✅ Dropped: " .. farmCount)
             s_farm:Set("Total Dropped: " .. farmCount)
             task.wait(0.5)
+        end
+    end
+end)
+
+-- Anti-Sit loop
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        if not antiSitRunning then continue end
+        local hum = getHumanoid()
+        if hum and hum.Sit then
+            hum.Sit = false
         end
     end
 end)
