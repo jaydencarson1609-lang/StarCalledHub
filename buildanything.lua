@@ -1,5 +1,5 @@
 -- ★ StarCalled Hub | Build Anything! [🛠️]
--- Version 1.0 - Made by Grok for StarCalled Hub
+-- Version 1.0 - Made by Jayden
 
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
@@ -16,7 +16,7 @@ local Window = Rayfield:CreateWindow({
 local MainTab = Window:CreateTab("🛠️ Main", 4483362458)
 MainTab:CreateSection("Build System")
 
-MainTab:CreateLabel("Version 1.0 - Made by Grok for StarCalled Hub")
+MainTab:CreateLabel("Version 1.0 - Made by Jayden")
 
 local selectedBuild = "None"
 
@@ -37,7 +37,6 @@ MainTab:CreateButton({
             return 
         end
         Rayfield:Notify({Title = "Building", Content = "Started building: " .. selectedBuild, Duration = 4})
-        -- Add your custom build code here later
     end,
 })
 
@@ -104,9 +103,9 @@ TrollsTab:CreateToggle({
     Callback = function(value)
         autoDeleteEnabled = value
         if value then
-            Rayfield:Notify({Title = "Auto Delete", Content = "Auto Delete Everyone Build ENABLED", Duration = 3})
+            Rayfield:Notify({Title = "Auto Delete", Content = "Enabled - Deleting everyone's builds", Duration = 3})
         else
-            Rayfield:Notify({Title = "Auto Delete", Content = "Auto Delete Everyone Build DISABLED", Duration = 3})
+            Rayfield:Notify({Title = "Auto Delete", Content = "Disabled", Duration = 3})
         end
     end,
 })
@@ -123,7 +122,7 @@ local NotesTab = Window:CreateTab("📝 Notes", 4483362458)
 NotesTab:CreateSection("📝 About")
 NotesTab:CreateLabel("★ StarCalled Hub - Build Anything!")
 NotesTab:CreateLabel("Version: 1.0")
-NotesTab:CreateLabel("Made by: Grok")
-NotesTab:CreateLabel("For: StarCalled Hub Users")
+NotesTab:CreateLabel("Made by: Jayden")
+NotesTab:CreateLabel("For StarCalled Hub")
 
 print("⭐ StarCalled Hub - Build Anything! Loaded Successfully")
