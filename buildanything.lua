@@ -1,5 +1,5 @@
 -- ★ StarCalled Hub | Build Anything! [🛠️]
--- Version 1.1 - Fixed Delete System
+-- Version 1.3 - Dynamic Builds Loader
 
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
@@ -12,36 +12,93 @@ local Window = Rayfield:CreateWindow({
     KeySystem = false,
 })
 
+-- ==================== DYNAMIC BUILD LOADER ====================
+local BuildsFolder = {}
+local GITHUB_USER = "jaydencarson1609-lang"
+local GITHUB_REPO = "StarCalledHub"
+local BUILDS_PATH = "Builds"
+
+local function LoadBuildsFromGitHub()
+    BuildsFolder = {}
+    local buildOptions = {"None"}
+
+    local buildFiles = {
+        "Tower.lua",      -- Add more here later like "Wall.lua", "House.lua"
+        -- "BigBase.lua",
+    }
+
+    for _, filename in ipairs(buildFiles) do
+        local url = "https://raw.githubusercontent.com/" .. GITHUB_USER .. "/" .. GITHUB_REPO .. "/main/" .. BUILDS_PATH .. "/" .. filename
+        
+        local success, response = pcall(function()
+            return game:HttpGet(url)
+        end)
+
+        if success then
+            local buildData = loadstring(response)()
+            if buildData then
+                local buildName = filename:gsub("%.lua$", "")
+                BuildsFolder[buildName] = buildData
+                table.insert(buildOptions, buildName)
+                print("✅ Loaded:", buildName)
+            end
+        else
+            warn("❌ Failed to load:", filename)
+        end
+    end
+
+    return buildOptions
+end
+
+local buildOptions = LoadBuildsFromGitHub()
+
 -- ==================== MAIN TAB ====================
 local MainTab = Window:CreateTab("🛠️ Main", 4483362458)
 MainTab:CreateSection("Build System")
 
-MainTab:CreateLabel("Version 1.1 - Made by Jayden")
-
-local selectedBuild = "None"
+local selectedBuildName = "None"
+local selectedBuildData = nil
 
 MainTab:CreateDropdown({
     Name = "What do you want to build?",
-    Options = {"None", "Custom Build 1", "Custom Build 2", "Custom Build 3"},
+    Options = buildOptions,
     Default = "None",
     Callback = function(value)
-        selectedBuild = value
+        selectedBuildName = value
+        selectedBuildData = BuildsFolder[value]
     end,
 })
 
 MainTab:CreateButton({
-    Name = "Build Selected",
+    Name = "🚀 Build Selected",
     Callback = function()
-        if selectedBuild == "None" then 
-            Rayfield:Notify({Title = "Select Build", Content = "Please choose something from the dropdown", Duration = 3})
+        if selectedBuildName == "None" or not selectedBuildData then 
+            Rayfield:Notify({Title = "Error", Content = "Please select a build!", Duration = 3})
             return 
         end
-        Rayfield:Notify({Title = "Building", Content = "Started: " .. selectedBuild, Duration = 4})
-        -- Add your building logic here later
+
+        Rayfield:Notify({Title = "Building...", Content = selectedBuildName, Duration = 4})
+
+        local PlaceEvent = game:GetService("ReplicatedStorage").Events.PlaceBlock 
+                        or game:GetService("ReplicatedStorage").Events.BuildBlock
+
+        for i, blockData in ipairs(selectedBuildData) do
+            task.spawn(function()
+                pcall(function()
+                    local blockType = blockData[1]
+                    local cframe = blockData[2]
+                    local parent = blockData[3] or workspace.Baseplate
+                    PlaceEvent:InvokeServer(blockType, cframe, parent)
+                end)
+            end)
+            if i % 8 == 0 then task.wait(0.04) end   -- Safe speed
+        end
+
+        Rayfield:Notify({Title = "✅ Finished", Content = selectedBuildName .. " has been built!", Duration = 5})
     end,
 })
 
--- ==================== TROLLS TAB (FIXED) ====================
+-- ==================== TROLLS TAB ====================
 local TrollsTab = Window:CreateTab("😈 Trolls", 4483362458)
 TrollsTab:CreateSection("Troll Controls")
 
@@ -60,36 +117,20 @@ TrollsTab:CreateButton({
     Name = "Delete User Build",
     Callback = function()
         local username = targetUsername
-        if username == "" or not username then 
-            Rayfield:Notify({Title = "Error", Content = "Enter a username!", Duration = 3})
-            return 
-        end
+        if username == "" then return end
 
         local Built = workspace:FindFirstChild("Built")
-        if not Built then 
-            Rayfield:Notify({Title = "Error", Content = "Built folder not found", Duration = 3})
-            return 
-        end
+        if not Built then return end
 
         local targetFolder = Built:FindFirstChild(username)
-        if not targetFolder then 
-            Rayfield:Notify({Title = "Error", Content = "No builds found for " .. username, Duration = 3})
-            return 
-        end
+        if not targetFolder then return end
 
         local Event = game:GetService("ReplicatedStorage").Events.DestroyBlock
-        local count = 0
-
         for _, block in ipairs(targetFolder:GetChildren()) do
             task.spawn(function()
-                pcall(function()
-                    Event:InvokeServer(block)
-                    count += 1
-                end)
+                pcall(function() Event:InvokeServer(block) end)
             end)
         end
-
-        Rayfield:Notify({Title = "Success", Content = "Deleting " .. count .. " blocks from " .. username, Duration = 4})
     end,
 })
 
@@ -97,61 +138,15 @@ TrollsTab:CreateButton({
     Name = "🗑️ Delete Everyone's Builds",
     Callback = function()
         local Built = workspace:FindFirstChild("Built")
-        if not Built then 
-            Rayfield:Notify({Title = "Error", Content = "Built folder not found", Duration = 3})
-            return 
-        end
+        if not Built then return end
 
         local Event = game:GetService("ReplicatedStorage").Events.DestroyBlock
-        local total = 0
-
         for _, plot in ipairs(Built:GetChildren()) do
             for _, block in ipairs(plot:GetChildren()) do
                 task.spawn(function()
-                    pcall(function()
-                        Event:InvokeServer(block)
-                    end)
+                    pcall(function() Event:InvokeServer(block) end)
                 end)
-                total += 1
             end
-        end
-
-        Rayfield:Notify({Title = "Deleting All", Content = "Started deleting " .. total .. " blocks...", Duration = 5})
-    end,
-})
-
-local autoDeleteConnection = nil
-
-TrollsTab:CreateToggle({
-    Name = "Auto Delete Everyone's Builds",
-    CurrentValue = false,
-    Callback = function(value)
-        if value then
-            autoDeleteConnection = task.spawn(function()
-                while true do
-                    pcall(function()
-                        local Built = workspace:FindFirstChild("Built")
-                        if Built then
-                            local Event = game:GetService("ReplicatedStorage").Events.DestroyBlock
-                            for _, plot in ipairs(Built:GetChildren()) do
-                                for _, block in ipairs(plot:GetChildren()) do
-                                    pcall(function()
-                                        Event:InvokeServer(block)
-                                    end)
-                                end
-                            end
-                        end
-                    end)
-                    task.wait(0.25) -- Balanced delay
-                end
-            end)
-            Rayfield:Notify({Title = "Auto Delete", Content = "ENABLED (Safer Speed)", Duration = 3})
-        else
-            if autoDeleteConnection then
-                task.cancel(autoDeleteConnection)
-                autoDeleteConnection = nil
-            end
-            Rayfield:Notify({Title = "Auto Delete", Content = "DISABLED", Duration = 3})
         end
     end,
 })
@@ -162,16 +157,14 @@ TrollsTab:CreateButton({
         pcall(function()
             game:GetService("ReplicatedStorage").Events.DeleteAllPlayerBlocks:FireServer()
         end)
-        Rayfield:Notify({Title = "Success", Content = "Deleting your builds...", Duration = 3})
     end,
 })
 
 -- ==================== NOTES TAB ====================
 local NotesTab = Window:CreateTab("📝 Notes", 4483362458)
-NotesTab:CreateSection("📝 About")
+NotesTab:CreateSection("Info")
 NotesTab:CreateLabel("★ StarCalled Hub - Build Anything!")
-NotesTab:CreateLabel("Version: 1.1 (Delete Fixed)")
-NotesTab:CreateLabel("Made by: Jayden")
-NotesTab:CreateLabel("Fixed delete spam + rate limit issues")
+NotesTab:CreateLabel("Version 1.3")
+NotesTab:CreateLabel("Made by Jayden")
 
-print("⭐ StarCalled Hub - Build Anything! Loaded Successfully (v1.1)")
+print("⭐ StarCalled Hub Loaded Successfully!")
