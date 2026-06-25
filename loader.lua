@@ -20,7 +20,14 @@ local SUPPORTED_GAMES = {
         name = "Build Anything! [🛠️]",
         emoji = "🛠️",
         loader = function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/jaydencarson1609-lang/StarCalledHub/main/buildanything.lua"))() -- Will be your script
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/jaydencarson1609-lang/StarCalledHub/main/buildanything.lua"))()
+        end
+    },
+    {
+        name = "+1 Speed Keyboard Escape | Candy & Chocolate",
+        emoji = "⌨️",
+        loader = function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/jaydencarson1609-lang/StarCalledHub/main/keyboardescape.lua"))()
         end
     },
 }
@@ -59,4 +66,4 @@ end
 
 GameTab:CreateSection("📝 About")
 GameTab:CreateLabel("★ StarCalled Hub — Made by Jayden")
-GameTab:CreateLabel("Baby Pursuers 👶 | Gambling 🎰 | Build Anything! 🛠️")
+GameTab:CreateLabel("Baby Pursuers 👶 | Gambling 🎰 | Build Anything! 🛠️ | +1 Speed Keyboard Escape ⌨️")
