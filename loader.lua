@@ -30,6 +30,13 @@ local SUPPORTED_GAMES = {
             loadstring(game:HttpGet("https://raw.githubusercontent.com/jaydencarson1609-lang/StarCalledHub/main/keyboardescape.lua"))()
         end
     },
+    {
+        name = "Clasher Royale",
+        emoji = "⚔️",
+        loader = function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/jaydencarson1609-lang/StarCalledHub/main/ClasherRoyale.lua"))()
+        end
+    },
 }
 
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
@@ -66,4 +73,11 @@ end
 
 GameTab:CreateSection("📝 About")
 GameTab:CreateLabel("★ StarCalled Hub — Made by Jayden")
-GameTab:CreateLabel("Baby Pursuers 👶 | Gambling 🎰 | Build Anything! 🛠️ | +1 Speed Keyboard Escape ⌨️")
+GameTab:CreateLabel("Baby Pursuers 👶 | Gambling 🎰 | Build Anything! 🛠️")
+GameTab:CreateLabel("+1 Speed Keyboard Escape ⌨️ | Clasher Royale ⚔️")
+
+Rayfield:Notify({
+    Title = "⭐ StarCalled Hub",
+    Content = "Loader Updated Successfully!",
+    Duration = 5
+})
