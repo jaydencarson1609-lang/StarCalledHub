@@ -37,6 +37,13 @@ local SUPPORTED_GAMES = {
             loadstring(game:HttpGet("https://raw.githubusercontent.com/jaydencarson1609-lang/StarCalledHub/main/ClasherRoyale.lua"))()
         end
     },
+    {
+        name = "Natural Disaster Survival",
+        emoji = "🌪️",
+        loader = function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/jaydencarson1609-lang/StarCalledHub/main/NDS.lua"))()
+        end
+    },
 }
 
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
@@ -74,10 +81,10 @@ end
 GameTab:CreateSection("📝 About")
 GameTab:CreateLabel("★ StarCalled Hub — Made by Jayden")
 GameTab:CreateLabel("Baby Pursuers 👶 | Gambling 🎰 | Build Anything! 🛠️")
-GameTab:CreateLabel("+1 Speed Keyboard Escape ⌨️ | Clasher Royale ⚔️")
+GameTab:CreateLabel("+1 Speed Keyboard Escape ⌨️ | Clasher Royale ⚔️ | Natural Disaster Survival 🌪️")
 
 Rayfield:Notify({
     Title = "⭐ StarCalled Hub",
-    Content = "Loader Updated Successfully!",
+    Content = "Natural Disaster Survival Added to Loader!",
     Duration = 5
 })
