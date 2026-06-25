@@ -3,7 +3,6 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
-local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
@@ -32,16 +31,15 @@ local autoWalk = false
 local autoFarm = false
 local noclip = false
 local flying = false
+local godmode = false
 
--- Function to find Win Blocks
+-- Find Win Blocks (safer version)
 local function getWinBlocks()
     local wins = {}
     for _, v in pairs(workspace:GetDescendants()) do
         if v:IsA("BasePart") and 
-           (v.Name:lower():find("winblock") or 
-            v.Name:lower():find("win") or 
-            v.Name:lower():find("finish") or 
-            v.Name:lower():find("goal") or 
+           (v.Name:lower():find("winblock") or v.Name:lower():find("win") or 
+            v.Name:lower():find("finish") or v.Name:lower():find("goal") or 
             v.Name:lower():find("end")) then
             table.insert(wins, v)
         end
@@ -49,17 +47,38 @@ local function getWinBlocks()
     return wins
 end
 
+-- ==================== ANTI-DEATH (Godmode) ====================
+local function enableGodmode()
+    godmode = true
+    task.spawn(function()
+        while godmode do
+            local char = player.Character
+            if char then
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if hum then
+                    hum.Health = hum.MaxHealth
+                    hum.MaxHealth = 99999
+                end
+                -- ForceField
+                if not char:FindFirstChild("ForceField") then
+                    local ff = Instance.new("ForceField")
+                    ff.Parent = char
+                end
+            end
+            task.wait(0.1)
+        end
+    end)
+end
+
 -- ==================== MAIN TAB ====================
-MainTab:CreateSection("⚡ Speed & Auto Features")
+MainTab:CreateSection("⚡ Speed & Protection")
 
 MainTab:CreateToggle({
     Name = "🔥 Auto Speed (Spam Remote)",
     CurrentValue = false,
-    Flag = "AutoSpeed",
     Callback = function(Value)
         autoSpeed = Value
         if Value then
-            Rayfield:Notify({Title = "⚡ Auto Speed", Content = "Spamming for max speed gain!", Duration = 3})
             task.spawn(function()
                 while autoSpeed do
                     UpdateSpeed:FireServer("Walking")
@@ -71,24 +90,15 @@ MainTab:CreateToggle({
 })
 
 MainTab:CreateToggle({
-    Name = "🏃 Auto Walk + Speed",
+    Name = "🛡️ Godmode / Anti-Death",
     CurrentValue = false,
-    Flag = "AutoWalk",
     Callback = function(Value)
-        autoWalk = Value
+        godmode = Value
         if Value then
-            task.spawn(function()
-                while autoWalk do
-                    UpdateSpeed:FireServer("Walking")
-                    local char = player.Character
-                    local root = char and char:FindFirstChild("HumanoidRootPart")
-                    local hum = char and char:FindFirstChildOfClass("Humanoid")
-                    if root and hum then
-                        hum:MoveTo(root.Position + root.CFrame.LookVector * 12)
-                    end
-                    task.wait(0.08)
-                end
-            end)
+            enableGodmode()
+            Rayfield:Notify({Title = "🛡️ Godmode", Content = "Enabled - You should no longer die to bosses", Duration = 4})
+        else
+            Rayfield:Notify({Title = "🛡️ Godmode", Content = "Disabled", Duration = 2})
         end
     end,
 })
@@ -96,94 +106,70 @@ MainTab:CreateToggle({
 MainTab:CreateButton({
     Name = "💨 Instant Speed Boost",
     Callback = function()
-        for i = 1, 50 do
-            UpdateSpeed:FireServer("Walking")
-        end
-        Rayfield:Notify({Title = "Boosted!", Content = "Huge speed increase applied", Duration = 2})
+        for i = 1, 50 do UpdateSpeed:FireServer("Walking") end
+        Rayfield:Notify({Title = "Boosted!", Content = "Huge speed increase", Duration = 2})
     end,
 })
 
 -- ==================== AUTO FARM TAB ====================
-AutoFarmTab:CreateSection("🌾 Auto Farm Settings")
+AutoFarmTab:CreateSection("🌾 Auto Farm (Improved)")
 
 local farmStatus = AutoFarmTab:CreateLabel("⚪ Auto Farm: Idle")
 
 AutoFarmTab:CreateToggle({
-    Name = "Auto Farm (WinBlock Loop)",
+    Name = "Auto Farm (WinBlock Loop + Safer)",
     CurrentValue = false,
-    Flag = "AutoFarm",
     Callback = function(Value)
         autoFarm = Value
         if Value then
-            farmStatus:Set("🟢 Auto Farm: Running")
-            Rayfield:Notify({Title = "🌾 Auto Farm", Content = "Started - Looping WinBlocks", Duration = 3})
+            farmStatus:Set("🟢 Running (Safer Mode)")
+            Rayfield:Notify({Title = "🌾 Auto Farm", Content = "Started - Avoiding instant boss death", Duration = 3})
             
             task.spawn(function()
                 while autoFarm do
                     local winBlocks = getWinBlocks()
                     if #winBlocks > 0 then
-                        for _, winPart in ipairs(winBlocks) do
-                            if not autoFarm then break end
-                            
-                            local char = player.Character
-                            local root = char and char:FindFirstChild("HumanoidRootPart")
-                            if root then
-                                root.CFrame = winPart.CFrame + Vector3.new(0, 8, 0)
-                                farmStatus:Set("🚀 Teleported to: " .. winPart.Name)
-                            end
-                            task.wait(0.6) -- Adjust timing based on reset speed
+                        -- Pick random win block but with delay
+                        local winPart = winBlocks[math.random(1, #winBlocks)]
+                        local char = player.Character
+                        local root = char and char:FindFirstChild("HumanoidRootPart")
+                        if root then
+                            root.CFrame = winPart.CFrame + Vector3.new(0, 10, 0) -- Higher up to avoid direct touch issues
+                            farmStatus:Set("🚀 TP to: " .. winPart.Name)
                         end
                     else
                         farmStatus:Set("🔍 Searching for WinBlocks...")
-                        task.wait(1)
                     end
-                    task.wait(0.3)
+                    task.wait(1.2) -- Longer delay = less buggy
                 end
                 farmStatus:Set("⚪ Auto Farm: Idle")
             end)
         else
             farmStatus:Set("⚪ Auto Farm: Idle")
-            Rayfield:Notify({Title = "🌾 Auto Farm", Content = "Stopped", Duration = 2})
         end
     end,
 })
 
-AutoFarmTab:CreateLabel("ℹ️ The script will repeatedly teleport to WinBlock / Finish parts")
-AutoFarmTab:CreateLabel("🔄 Game should reset your progress on touch → farm continues")
+AutoFarmTab:CreateLabel("ℹ️ Safer delays + Godmode recommended to survive bosses")
 
 -- ==================== MOVEMENT TAB ====================
 MovementTab:CreateSection("Movement Hacks")
 
 MovementTab:CreateSlider({
-    Name = "WalkSpeed",
-    Range = {16, 300},
-    Increment = 1,
-    CurrentValue = 50,
-    Callback = function(Value)
+    Name = "WalkSpeed", Range = {16, 400}, Increment = 1, CurrentValue = 60,
+    Callback = function(v)
         local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-        if hum then hum.WalkSpeed = Value end
-    end,
-})
-
-MovementTab:CreateSlider({
-    Name = "JumpPower",
-    Range = {50, 400},
-    Increment = 5,
-    CurrentValue = 50,
-    Callback = function(Value)
-        local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-        if hum then hum.JumpPower = Value end
+        if hum then hum.WalkSpeed = v end
     end,
 })
 
 MovementTab:CreateToggle({
-    Name = "Fly (F to toggle in-game)",
+    Name = "Fly (Press F to toggle)",
     CurrentValue = false,
     Callback = function(Value)
         flying = Value
         local char = player.Character
-        if not char then return end
-        local root = char:FindFirstChild("HumanoidRootPart")
+        local root = char and char:FindFirstChild("HumanoidRootPart")
         if not root then return end
 
         local bv = Instance.new("BodyVelocity")
@@ -204,12 +190,12 @@ MovementTab:CreateToggle({
                 if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.new(0,1,0) end
                 if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir -= Vector3.new(0,1,0) end
 
-                bv.Velocity = dir.Unit * 80
+                bv.Velocity = dir.Unit * 90
                 bg.CFrame = cam.CFrame
                 task.wait()
             end
-            if bv then bv:Destroy() end
-            if bg then bg:Destroy() end
+            bv:Destroy()
+            bg:Destroy()
         end)
     end,
 })
@@ -224,9 +210,7 @@ MovementTab:CreateToggle({
                 local char = player.Character
                 if char then
                     for _, part in pairs(char:GetDescendants()) do
-                        if part:IsA("BasePart") then
-                            part.CanCollide = false
-                        end
+                        if part:IsA("BasePart") then part.CanCollide = false end
                     end
                 end
                 task.wait(0.1)
@@ -235,41 +219,13 @@ MovementTab:CreateToggle({
     end,
 })
 
-MovementTab:CreateButton({
-    Name = "Infinite Jump",
-    Callback = function()
-        UserInputService.JumpRequest:Connect(function()
-            local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-            if hum then hum:ChangeState("Jumping") end
-        end)
-        Rayfield:Notify({Title = "Infinite Jump", Content = "Enabled", Duration = 3})
-    end,
-})
-
--- ==================== TELEPORTS ====================
-TeleportTab:CreateSection("Quick Teleports")
-TeleportTab:CreateButton({
-    Name = "Teleport to Start",
-    Callback = function() 
-        local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-        if root then root.CFrame = CFrame.new(0, 10, 0) end 
-    end,
-})
-
 -- ==================== NOTES TAB ====================
 NotesTab:CreateSection("📝 About")
 NotesTab:CreateLabel("★ StarCalled Hub")
 NotesTab:CreateLabel("Made by: Jayden")
 NotesTab:CreateLabel("Game: +1 Speed Keyboard Escape | Candy & Chocolate")
-NotesTab:CreateLabel("Version: 1.3")
+NotesTab:CreateLabel("Version: 1.4 - Anti-Boss Edition")
 local timeLbl = NotesTab:CreateLabel("🕐 Loading...")
-local function getTime()
-    return os.date("%A %d %B %Y • %H:%M:%S")
-end
-timeLbl:Set("🕐 Loaded at: " .. getTime())
+timeLbl:Set("🕐 Loaded at: " .. os.date("%A %d %B %Y • %H:%M:%S"))
 
-Rayfield:Notify({
-    Title = "⭐ Loaded Successfully",
-    Content = "+1 Speed Keyboard Escape | Candy & Chocolate",
-    Duration = 5
-})
+Rayfield:Notify({Title = "✅ Updated", Content = "Anti-Death + Safer Auto Farm Added!", Duration = 5})
