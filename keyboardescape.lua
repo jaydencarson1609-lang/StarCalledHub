@@ -19,6 +19,7 @@ local Window = Rayfield:CreateWindow({
 
 local MainTab = Window:CreateTab("🏠 Main", 4483362458)
 local MovementTab = Window:CreateTab("🏃 Movement", 4483362458)
+local AutoFarmTab = Window:CreateTab("🌾 Auto Farm", 4483362458)
 local TeleportTab = Window:CreateTab("📍 Teleports", 4483362458)
 local NotesTab = Window:CreateTab("📝 Notes", 4483362458)
 
@@ -28,8 +29,25 @@ local UpdateSpeed = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Upda
 -- Variables
 local autoSpeed = false
 local autoWalk = false
+local autoFarm = false
 local noclip = false
 local flying = false
+
+-- Function to find Win Blocks
+local function getWinBlocks()
+    local wins = {}
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v:IsA("BasePart") and 
+           (v.Name:lower():find("winblock") or 
+            v.Name:lower():find("win") or 
+            v.Name:lower():find("finish") or 
+            v.Name:lower():find("goal") or 
+            v.Name:lower():find("end")) then
+            table.insert(wins, v)
+        end
+    end
+    return wins
+end
 
 -- ==================== MAIN TAB ====================
 MainTab:CreateSection("⚡ Speed & Auto Features")
@@ -45,7 +63,7 @@ MainTab:CreateToggle({
             task.spawn(function()
                 while autoSpeed do
                     UpdateSpeed:FireServer("Walking")
-                    task.wait(0.025) -- Very fast spam
+                    task.wait(0.025)
                 end
             end)
         end
@@ -85,26 +103,53 @@ MainTab:CreateButton({
     end,
 })
 
-MainTab:CreateSection("🎯 Auto Win")
+-- ==================== AUTO FARM TAB ====================
+AutoFarmTab:CreateSection("🌾 Auto Farm Settings")
 
-MainTab:CreateButton({
-    Name = "🔄 Auto Win (Teleport to End)",
-    Callback = function()
-        Rayfield:Notify({Title = "Auto Win", Content = "Looking for finish...", Duration = 3})
-        for _, v in pairs(workspace:GetDescendants()) do
-            if v.Name:lower():find("finish") or v.Name:lower():find("end") or v.Name:lower():find("win") or v.Name:lower():find("goal") then
-                local char = player.Character
-                local root = char and char:FindFirstChild("HumanoidRootPart")
-                if root then
-                    root.CFrame = v.CFrame + Vector3.new(0, 5, 0)
-                    Rayfield:Notify({Title = "✅ Teleported", Content = "To finish area!", Duration = 3})
-                    return
+local farmStatus = AutoFarmTab:CreateLabel("⚪ Auto Farm: Idle")
+
+AutoFarmTab:CreateToggle({
+    Name = "Auto Farm (WinBlock Loop)",
+    CurrentValue = false,
+    Flag = "AutoFarm",
+    Callback = function(Value)
+        autoFarm = Value
+        if Value then
+            farmStatus:Set("🟢 Auto Farm: Running")
+            Rayfield:Notify({Title = "🌾 Auto Farm", Content = "Started - Looping WinBlocks", Duration = 3})
+            
+            task.spawn(function()
+                while autoFarm do
+                    local winBlocks = getWinBlocks()
+                    if #winBlocks > 0 then
+                        for _, winPart in ipairs(winBlocks) do
+                            if not autoFarm then break end
+                            
+                            local char = player.Character
+                            local root = char and char:FindFirstChild("HumanoidRootPart")
+                            if root then
+                                root.CFrame = winPart.CFrame + Vector3.new(0, 8, 0)
+                                farmStatus:Set("🚀 Teleported to: " .. winPart.Name)
+                            end
+                            task.wait(0.6) -- Adjust timing based on reset speed
+                        end
+                    else
+                        farmStatus:Set("🔍 Searching for WinBlocks...")
+                        task.wait(1)
+                    end
+                    task.wait(0.3)
                 end
-            end
+                farmStatus:Set("⚪ Auto Farm: Idle")
+            end)
+        else
+            farmStatus:Set("⚪ Auto Farm: Idle")
+            Rayfield:Notify({Title = "🌾 Auto Farm", Content = "Stopped", Duration = 2})
         end
-        Rayfield:Notify({Title = "❌ Not Found", Content = "No finish found, try again", Duration = 3})
     end,
 })
+
+AutoFarmTab:CreateLabel("ℹ️ The script will repeatedly teleport to WinBlock / Finish parts")
+AutoFarmTab:CreateLabel("🔄 Game should reset your progress on touch → farm continues")
 
 -- ==================== MOVEMENT TAB ====================
 MovementTab:CreateSection("Movement Hacks")
@@ -163,8 +208,8 @@ MovementTab:CreateToggle({
                 bg.CFrame = cam.CFrame
                 task.wait()
             end
-            bv:Destroy()
-            bg:Destroy()
+            if bv then bv:Destroy() end
+            if bg then bg:Destroy() end
         end)
     end,
 })
@@ -185,13 +230,6 @@ MovementTab:CreateToggle({
                     end
                 end
                 task.wait(0.1)
-            end
-            -- Reset
-            local char = player.Character
-            if char then
-                for _, part in pairs(char:GetDescendants()) do
-                    if part:IsA("BasePart") then part.CanCollide = true end
-                end
             end
         end)
     end,
@@ -223,7 +261,7 @@ NotesTab:CreateSection("📝 About")
 NotesTab:CreateLabel("★ StarCalled Hub")
 NotesTab:CreateLabel("Made by: Jayden")
 NotesTab:CreateLabel("Game: +1 Speed Keyboard Escape | Candy & Chocolate")
-NotesTab:CreateLabel("Version: 1.2")
+NotesTab:CreateLabel("Version: 1.3")
 local timeLbl = NotesTab:CreateLabel("🕐 Loading...")
 local function getTime()
     return os.date("%A %d %B %Y • %H:%M:%S")
