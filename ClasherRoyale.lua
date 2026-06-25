@@ -30,13 +30,24 @@ local ChoseUnit = ReplicatedStorage:WaitForChild("Events"):WaitForChild("ChoseUn
 local UseAttack = ReplicatedStorage:WaitForChild("UnitEvents"):WaitForChild("UseAttack")
 local VoteEvent = ReplicatedStorage:WaitForChild("Events"):WaitForChild("VoteEvent")
 
+-- Variables
+local autoDeploy = false
+local autoAttack = false
+local selectedUnit = "Skeletons"
+
 -- ==================== MAIN TAB ====================
-MainTab:CreateSection("🎮 General")
+MainTab:CreateSection("🎮 General Features")
 
 MainTab:CreateButton({
-    Name = "💰 Instant Resources (Test)",
+    Name = "Refresh Tower Values",
     Callback = function()
-        Rayfield:Notify({Title = "💰 Trying Resources", Content = "Firing common money remotes...", Duration = 3})
+        local towerValues = Workspace:FindFirstChild("Royal Arena") and Workspace["Royal Arena"]:FindFirstChild("TowerValues")
+        if towerValues then
+            Rayfield:Notify({Title = "✅ Tower Values", Content = "Found! Check console (F9)", Duration = 4})
+            print("Tower Values:", towerValues:GetChildren())
+        else
+            Rayfield:Notify({Title = "❌ Not Found", Content = "Royal Arena.TowerValues not found", Duration = 3})
+        end
     end,
 })
 
@@ -47,7 +58,7 @@ TeamTab:CreateButton({
     Name = "Join Blue Team",
     Callback = function()
         SetTeam:FireServer(game:GetService("Teams").Blue)
-        Rayfield:Notify({Title = "🔵 Team", Content = "Joined Blue Team", Duration = 3})
+        Rayfield:Notify({Title = "🔵 Blue Team", Content = "Joined successfully", Duration = 3})
     end,
 })
 
@@ -55,79 +66,84 @@ TeamTab:CreateButton({
     Name = "Join Red Team",
     Callback = function()
         SetTeam:FireServer(game:GetService("Teams").Red)
-        Rayfield:Notify({Title = "🔴 Team", Content = "Joined Red Team", Duration = 3})
+        Rayfield:Notify({Title = "🔴 Red Team", Content = "Joined successfully", Duration = 3})
     end,
 })
 
 -- ==================== DEPLOY TAB ====================
 DeployTab:CreateSection("📍 Unit Deployment")
 
-local selectedUnit = "Skeletons"
-
 DeployTab:CreateDropdown({
     Name = "Select Unit",
-    Options = {"Skeletons", "Giants", "Archers", "Goblins", "Barbarians"}, -- Add more units you find
+    Options = {"Skeletons", "Giants", "Archers", "Goblins", "Barbarians", "Knight", "Wizard"}, -- Add more as you discover
     CurrentOption = {"Skeletons"},
     Callback = function(Value)
         selectedUnit = Value[1]
     end,
 })
 
-DeployTab:CreateButton({
-    Name = "Deploy Selected Unit",
-    Callback = function()
-        ChoseUnit:FireServer(selectedUnit)
-        task.wait(0.3)
-        
-        -- Try to deploy on a common tile
-        local deployArea = Workspace:FindFirstChild("Dark Elixir Cave") or Workspace:FindFirstChild("Map")
-        if deployArea then
-            local tiles = deployArea:FindFirstChild("BlueTiles") or deployArea:FindFirstChild("Tiles")
-            if tiles and tiles:FindFirstChild("Pocket2") then
-                local pocket = tiles.Pocket2
-                local children = pocket:GetChildren()
-                if #children > 0 then
-                    Deploy:FireServer(children[math.random(1, #children)])
-                    Rayfield:Notify({Title = "✅ Deployed", Content = selectedUnit .. " deployed!", Duration = 3})
+DeployTab:CreateToggle({
+    Name = "Auto Spam Selected Unit",
+    CurrentValue = false,
+    Callback = function(Value)
+        autoDeploy = Value
+        if Value then
+            Rayfield:Notify({Title = "📍 Auto Deploy", Content = "Spamming " .. selectedUnit, Duration = 3})
+            task.spawn(function()
+                while autoDeploy do
+                    ChoseUnit:FireServer(selectedUnit)
+                    task.wait(0.12)
+                    
+                    -- Try to deploy on available tiles
+                    local arena = Workspace:FindFirstChild("Royal Arena") or Workspace:FindFirstChild("Dark Elixir Cave")
+                    if arena then
+                        local tilesFolder = arena:FindFirstChild("BlueTiles") or arena:FindFirstChild("Tiles")
+                        if tilesFolder and tilesFolder:FindFirstChild("Pocket2") then
+                            local pocket = tilesFolder.Pocket2
+                            local children = pocket:GetChildren()
+                            if #children > 0 then
+                                Deploy:FireServer(children[math.random(1, #children)])
+                            end
+                        end
+                    end
+                    task.wait(0.35)
                 end
-            end
+            end)
+        else
+            Rayfield:Notify({Title = "📍 Auto Deploy", Content = "Stopped", Duration = 2})
         end
     end,
 })
 
 DeployTab:CreateButton({
-    Name = "Auto Deploy Skeletons (Spam)",
+    Name = "Deploy Once (Selected Unit)",
     Callback = function()
-        Rayfield:Notify({Title = "Auto Deploy", Content = "Spamming Skeletons...", Duration = 3})
-        task.spawn(function()
-            for i = 1, 30 do
-                ChoseUnit:FireServer("Skeletons")
-                task.wait(0.15)
-                -- Try deploy
-                local pocket = Workspace:FindFirstChild("Dark Elixir Cave") and Workspace["Dark Elixir Cave"]:FindFirstChild("BlueTiles") and Workspace["Dark Elixir Cave"].BlueTiles:FindFirstChild("Pocket2")
-                if pocket then
-                    local children = pocket:GetChildren()
-                    if #children > 0 then
-                        Deploy:FireServer(children[math.random(1, #children)])
-                    end
-                end
-                task.wait(0.4)
-            end
-        end)
+        ChoseUnit:FireServer(selectedUnit)
+        task.wait(0.2)
+        Rayfield:Notify({Title = "✅ Deployed", Content = selectedUnit, Duration = 2})
     end,
 })
 
 -- ==================== COMBAT TAB ====================
-CombatTab:CreateSection("⚔️ Combat Features")
+CombatTab:CreateSection("⚔️ Combat & Auto Attack")
 
-CombatTab:CreateButton({
-    Name = "Use Attack (Test Position)",
-    Callback = function()
-        UseAttack:FireServer(
-            Vector3.new(-56.2, 12.6, 430.9),
-            Vector3.new(-56.2, 12.6, 430.9)
-        )
-        Rayfield:Notify({Title = "⚔️ Attack", Content = "Attack fired!", Duration = 3})
+CombatTab:CreateToggle({
+    Name = "Auto Attack (Spam)",
+    CurrentValue = false,
+    Callback = function(Value)
+        autoAttack = Value
+        if Value then
+            Rayfield:Notify({Title = "⚔️ Auto Attack", Content = "Spamming attacks...", Duration = 3})
+            task.spawn(function()
+                while autoAttack do
+                    local targetPos = Vector3.new(-56.2, 12.6, 430.9) -- You can change this
+                    UseAttack:FireServer(targetPos, targetPos)
+                    task.wait(0.15)
+                end
+            end)
+        else
+            Rayfield:Notify({Title = "⚔️ Auto Attack", Content = "Stopped", Duration = 2})
+        end
     end,
 })
 
@@ -135,7 +151,23 @@ CombatTab:CreateButton({
     Name = "Vote Cozy Clashmas Arena",
     Callback = function()
         VoteEvent:FireServer("ARENA", "Cozy Clashmas")
-        Rayfield:Notify({Title = "🗳️ Vote", Content = "Voted for Cozy Clashmas", Duration = 3})
+        Rayfield:Notify({Title = "🗳️ Voted", Content = "Cozy Clashmas Arena", Duration = 3})
+    end,
+})
+
+CombatTab:CreateButton({
+    Name = "Attack Nearest Unit",
+    Callback = function()
+        local units = Workspace:FindFirstChild("Units")
+        if units then
+            local children = units:GetChildren()
+            if #children > 0 then
+                local target = children[math.random(1, #children)]
+                local pos = target.Position
+                UseAttack:FireServer(pos, pos)
+                Rayfield:Notify({Title = "⚔️ Attacking", Content = "Nearest unit targeted", Duration = 2})
+            end
+        end
     end,
 })
 
@@ -144,11 +176,11 @@ NotesTab:CreateSection("📝 About")
 NotesTab:CreateLabel("★ StarCalled Hub")
 NotesTab:CreateLabel("Made by: Jayden")
 NotesTab:CreateLabel("Game: Clasher Royale")
-NotesTab:CreateLabel("Version: 1.1")
+NotesTab:CreateLabel("Version: 1.2 - Auto Spam Edition")
 local timeLbl = NotesTab:CreateLabel("🕐 Loaded at: " .. os.date("%A %d %B %Y • %H:%M:%S"))
 
 Rayfield:Notify({
-    Title = "✅ Clasher Royale Loaded",
-    Content = "Team Changer + Deploy + Combat Added!",
+    Title = "✅ Clasher Royale",
+    Content = "Auto Spam Deploy + Auto Attack Added!",
     Duration = 5
 })
