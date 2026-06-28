@@ -1,90 +1,79 @@
--- ★ StarCalled Hub | Loader v2
--- Push to: StarCalledHub/loader.lua
+-- ╔══════════════════════════════════════════════╗
+-- ║                                              ║
+-- ║            ★ StarCalled Hub                  ║
+-- ║          The hub above all others.           ║
+-- ║                                              ║
+-- ║              Made by Jayden                  ║
+-- ║                                              ║
+-- ╚══════════════════════════════════════════════╝
 
-local SUPPORTED_GAMES = {
-    {
-        name = "PROJECT GAMBLING",
-        emoji = "🎰",
-        loader = function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/jaydencarson1609-lang/StarCalledHub/main/projectgambling.lua"))()
-        end
-    },
-    {
-        name = "Baby Pursuers",
-        emoji = "👶",
-        loader = function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/jaydencarson1609-lang/StarCalledHub/main/babypursuers.lua"))()
-        end
-    },
-    {
-        name = "Build Anything! [🛠️]",
-        emoji = "🛠️",
-        loader = function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/jaydencarson1609-lang/StarCalledHub/main/buildanything.lua"))()
-        end
-    },
-    {
-        name = "+1 Speed Keyboard Escape | Candy & Chocolate",
-        emoji = "⌨️",
-        loader = function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/jaydencarson1609-lang/StarCalledHub/main/keyboardescape.lua"))()
-        end
-    },
-    {
-        name = "Clasher Royale",
-        emoji = "⚔️",
-        loader = function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/jaydencarson1609-lang/StarCalledHub/main/ClasherRoyale.lua"))()
-        end
-    },
-    {
-        name = "Natural Disaster Survival",
-        emoji = "🌪️",
-        loader = function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/jaydencarson1609-lang/StarCalledHub/main/NDS.lua"))()
-        end
-    },
+-- Configuration
+local HUB = {
+    Name      = "★ StarCalled Hub",
+    Version   = "2.0",
+    Developer = "Jayden",
+    BaseURL   = "https://raw.githubusercontent.com/jaydencarson1609-lang/StarCalledHub/main/",
 }
 
+-- Games
+local Games = {
+    { Name = "★ Project Gambling",          Script = "projectgambling.lua"  },
+    { Name = "★ Baby Pursuers",             Script = "babypursuers.lua"     },
+    { Name = "★ Build Anything",            Script = "buildanything.lua"    },
+    { Name = "★ Keyboard Escape",           Script = "keyboardescape.lua"   },
+    { Name = "★ Clasher Royale",            Script = "ClasherRoyale.lua"    },
+    { Name = "★ Natural Disaster Survival", Script = "NDS.lua"              },
+    { Name = "★ Funky Friday",              Script = "funkyfriday.lua"      },
+}
+
+-- Rayfield
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
+-- Window
 local Window = Rayfield:CreateWindow({
-    Name = "★ StarCalled Hub",
-    LoadingTitle = "StarCalled Hub",
-    LoadingSubtitle = "Choose a game to load",
+    Name            = "★ StarCalled Hub",
+    LoadingTitle    = "★ StarCalled Hub",
+    LoadingSubtitle = "The hub above all others.",
     ConfigurationSaving = { Enabled = false },
-    Discord = { Enabled = false },
-    KeySystem = false,
+    Discord         = { Enabled = false },
+    KeySystem       = false,
 })
 
-local GameTab = Window:CreateTab("🎮 Games", 4483362458)
+-- Games Tab
+local GameTab = Window:CreateTab("★ Games", 4483362458)
+GameTab:CreateSection("★ Select a Game")
 
-GameTab:CreateSection("Supported Games")
-
-for _, gameEntry in ipairs(SUPPORTED_GAMES) do
+for _, entry in ipairs(Games) do
     GameTab:CreateButton({
-        Name = gameEntry.emoji .. " " .. gameEntry.name,
+        Name = entry.Name,
         Callback = function()
             Rayfield:Notify({
-                Title = "⏳ Loading",
-                Content = "Loading " .. gameEntry.name .. "...",
-                Duration = 3
+                Title    = "★ StarCalled Hub",
+                Content  = "Loading " .. entry.Name .. "...",
+                Duration = 3,
             })
             task.wait(1.5)
             Rayfield:Destroy()
             task.wait(0.3)
-            gameEntry.loader()
+            loadstring(game:HttpGet(HUB.BaseURL .. entry.Script))()
         end,
     })
 end
 
-GameTab:CreateSection("📝 About")
-GameTab:CreateLabel("★ StarCalled Hub — Made by Jayden")
-GameTab:CreateLabel("Baby Pursuers 👶 | Gambling 🎰 | Build Anything! 🛠️")
-GameTab:CreateLabel("+1 Speed Keyboard Escape ⌨️ | Clasher Royale ⚔️ | Natural Disaster Survival 🌪️")
+-- Info Tab
+local InfoTab = Window:CreateTab("★ Info", 4483362458)
+InfoTab:CreateSection("★ About")
+InfoTab:CreateLabel("Developer  |  " .. HUB.Developer)
+InfoTab:CreateLabel("Version    |  v" .. HUB.Version)
+InfoTab:CreateLabel("Games      |  " .. #Games .. " Supported")
+InfoTab:CreateSection("★ Games List")
+for _, entry in ipairs(Games) do
+    InfoTab:CreateLabel(entry.Name)
+end
 
+-- Startup
 Rayfield:Notify({
-    Title = "⭐ StarCalled Hub",
-    Content = "Natural Disaster Survival Added to Loader!",
-    Duration = 5
+    Title    = "★ StarCalled Hub",
+    Content  = "Welcome back. " .. #Games .. " games ready.",
+    Duration = 5,
 })
