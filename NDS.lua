@@ -1,423 +1,730 @@
--- ★ StarCalled Hub | Natural Disaster Survival | FE GODMODE
--- Executor-ready (Synapse/Krnl/Fluxus/etc.)
--- Telekinesis replicates to all players via BodyPosition physics
+-- StarCalled Hub v6.3 | Natural Disaster Survival
+-- Tabs: Main | FE Stuff | Notes
 
-local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
-local Debris = game:GetService("Debris")
-local player = Players.LocalPlayer
-local mouse = player:GetMouse()
-
--- Load Rayfield (or use your own UI lib)
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
-if not Rayfield then
-    -- Fallback: simple notification
-    warn("Rayfield not loaded, using basic UI")
-    -- We'll still work but without UI
-end
+task.wait(0.5)
 
--- ========== WINDOW ==========
 local Window = Rayfield:CreateWindow({
-    Name = "★ StarCalled Hub FE",
+    Name = "StarCalled Hub | Natural Disaster Survival",
     LoadingTitle = "StarCalled Hub",
-    LoadingSubtitle = "NDS • FE Telekinesis",
-    ConfigurationSaving = { Enabled = true, FolderName = "StarCalledHub", FileName = "NDS_FE" },
+    LoadingSubtitle = "Natural Disaster Survival",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "StarCalledHub",
+        FileName = "NDS_Config"
+    },
     Discord = { Enabled = false },
     KeySystem = false,
 })
 
-local MainTab = Window:CreateTab("🚀 Movement", 4483362458)
-local TeleTab = Window:CreateTab("🧲 Telekinesis", 4483362458)
-local InfoTab = Window:CreateTab("📝 Info", 4483362458)
+-- Services
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local PhysicsService = game:GetService("PhysicsService")
+local Debris = game:GetService("Debris")
+local player = Players.LocalPlayer
+local camera = Workspace.CurrentCamera
 
--- ========== GLOBALS ==========
+-- Noclip collision group
+pcall(function()
+    PhysicsService:CreateCollisionGroup("NoCollideGroup")
+    PhysicsService:CollisionGroupSetCollidable("NoCollideGroup", "Default", false)
+end)
+
+-- State
 local flying = false
-local noclipEnabled = false
-local vehicleFlyEnabled = false
-local telekinesisActive = false
-local teleTarget = nil
-local teleBodyPos = nil
-local teleBodyGyro = nil
-local teleHolding = false
-local teleTool = nil
+local noclip = false
+local infiniteJump = false
+local FLY_SPEED = 50
 
--- ========== UTILITY ==========
-local function safeChar()
-    local c = player.Character
-    if c and c.Parent then return c end
-    return nil
-end
+---------------------------------------
+-- TABS
+---------------------------------------
+local MainTab  = Window:CreateTab("Main",     4483362458)
+local FETab    = Window:CreateTab("FE Stuff", 4483362458)
+local NotesTab = Window:CreateTab("Notes",    4483362458)
 
-local function getRoot()
-    local c = safeChar()
-    return c and c:FindFirstChild("HumanoidRootPart")
-end
+---------------------------------------
+-- 1. MAIN TAB
+---------------------------------------
+MainTab:CreateSection("Movement")
 
-local function getHum()
-    local c = safeChar()
-    return c and c:FindFirstChildOfClass("Humanoid")
-end
-
--- ========== FLY (FE REPLICATING) ==========
-local flyBV, flyBG, flyThread = nil, nil, nil
-local function startFly()
-    local root = getRoot()
-    if not root then return end
-    if flyBV then flyBV:Destroy() end
-    if flyBG then flyBG:Destroy() end
-    flyBV = Instance.new("BodyVelocity")
-    flyBG = Instance.new("BodyGyro")
-    flyBV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
-    flyBG.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
-    flyBV.Parent = root
-    flyBG.Parent = root
-    if flyThread then task.cancel(flyThread) end
-    flyThread = task.spawn(function()
-        while flying and root and root.Parent do
-            local cam = Workspace.CurrentCamera
-            if not cam then task.wait(0.1) continue end
-            local dir = Vector3.new()
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir += cam.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir -= cam.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir -= cam.CFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir += cam.CFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.new(0,1,0) end
-            if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir -= Vector3.new(0,1,0) end
-            flyBV.Velocity = dir.Magnitude > 0 and dir.Unit * 120 or Vector3.new(0,0,0)
-            flyBG.CFrame = cam.CFrame
-            task.wait(0.03)
-        end
-        if flyBV then flyBV:Destroy() end
-        if flyBG then flyBG:Destroy() end
-        flyBV = nil; flyBG = nil
-    end)
-end
-
--- ========== NOCLIP (CLIENT ONLY, BUT WORKS) ==========
-local noclipThread = nil
-local origCollisions = {}
-local function toggleNoclip(state)
-    noclipEnabled = state
-    if noclipThread then task.cancel(noclipThread); noclipThread = nil end
-    local c = safeChar()
-    if not c then return end
-    if state then
-        for _, part in pairs(c:GetDescendants()) do
-            if part:IsA("BasePart") then
-                origCollisions[part] = part.CanCollide
-                part.CanCollide = false
-            end
-        end
-        noclipThread = task.spawn(function()
-            while noclipEnabled do
-                local ch = safeChar()
-                if ch then
-                    for _, p in pairs(ch:GetDescendants()) do
-                        if p:IsA("BasePart") and p.CanCollide ~= false then
-                            p.CanCollide = false
-                        end
-                    end
-                end
-                task.wait(0.15)
-            end
-        end)
-    else
-        for part, val in pairs(origCollisions) do
-            if part and part.Parent then part.CanCollide = val end
-        end
-        origCollisions = {}
-        local ch = safeChar()
-        if ch then
-            for _, p in pairs(ch:GetDescendants()) do
-                if p:IsA("BasePart") then p.CanCollide = true end
-            end
-        end
-    end
-end
-
--- ========== VEHICLE FLY (FE) ==========
-local vFlyThread = nil
-local function startVehicleFly()
-    if vFlyThread then task.cancel(vFlyThread) end
-    vFlyThread = task.spawn(function()
-        while vehicleFlyEnabled do
-            local c = safeChar()
-            if c then
-                local hum = c:FindFirstChildOfClass("Humanoid")
-                local seat = hum and hum.SeatPart
-                if seat then
-                    local vehicle = seat.Parent
-                    if vehicle and vehicle:IsA("Model") then
-                        local root = vehicle:FindFirstChild("PrimaryPart") or vehicle:FindFirstChildWhichIsA("BasePart")
-                        if root then
-                            local bv = root:FindFirstChild("VehFlyBV") or Instance.new("BodyVelocity")
-                            local bg = root:FindFirstChild("VehFlyBG") or Instance.new("BodyGyro")
-                            bv.Name = "VehFlyBV"; bg.Name = "VehFlyBG"
-                            bv.MaxForce = Vector3.new(9e9,9e9,9e9)
-                            bg.MaxTorque = Vector3.new(9e9,9e9,9e9)
-                            bv.Parent = root; bg.Parent = root
-                            local cam = Workspace.CurrentCamera
-                            if cam then
-                                local dir = Vector3.new()
-                                if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir += cam.CFrame.LookVector end
-                                if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir -= cam.CFrame.LookVector end
-                                if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir -= cam.CFrame.RightVector end
-                                if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir += cam.CFrame.RightVector end
-                                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.new(0,1,0) end
-                                if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir -= Vector3.new(0,1,0) end
-                                bv.Velocity = dir.Magnitude > 0 and dir.Unit * 100 or Vector3.new(0,0,0)
-                                bg.CFrame = cam.CFrame
-                            end
-                        end
-                    end
-                end
-            end
-            task.wait(0.035)
-        end
-        -- cleanup
-        for _, obj in pairs(Workspace:GetDescendants()) do
-            if obj:IsA("BodyVelocity") and obj.Name == "VehFlyBV" then obj:Destroy() end
-            if obj:IsA("BodyGyro") and obj.Name == "VehFlyBG" then obj:Destroy() end
-        end
-    end)
-end
-
--- ========== FE TELEKINESIS TOOL ==========
--- Creates a Tool with a Handle that, when equipped, lets you drag unanchored parts.
--- Uses BodyPosition/BodyGyro which replicate across clients.
-
-local function createTeleTool()
-    if teleTool then teleTool:Destroy() end
-    teleTool = Instance.new("Tool")
-    teleTool.Name = "FE Telekinesis"
-    teleTool.RequiresHandle = true
-    teleTool.CanBeDropped = false
-
-    local handle = Instance.new("Part")
-    handle.Name = "Handle"
-    handle.Size = Vector3.new(1, 1, 1)
-    handle.Anchored = false
-    handle.CanCollide = false
-    handle.Transparency = 0.6
-    handle.BrickColor = BrickColor.new("Bright violet")
-    handle.Material = Enum.Material.Neon
-    handle.Parent = teleTool
-
-    local bill = Instance.new("BillboardGui")
-    bill.Size = UDim2.new(0, 120, 0, 30)
-    bill.StudsOffset = Vector3.new(0, 1.5, 0)
-    bill.Parent = handle
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1,0,1,0)
-    label.BackgroundTransparency = 1
-    label.Text = "🧲 CLICK TO GRAB"
-    label.TextColor3 = Color3.new(1, 0.8, 0.2)
-    label.TextScaled = true
-    label.Font = Enum.Font.GothamBold
-    label.Parent = bill
-
-    -- We'll use a LocalScript inside the tool (executor runs it)
-    local ls = Instance.new("LocalScript")
-    ls.Name = "TeleControl"
-    ls.Parent = teleTool
-
-    -- The script content (as a string, we'll compile it)
-    local scriptSrc = [[
-        local tool = script.Parent
-        local player = game.Players.LocalPlayer
-        local mouse = player:GetMouse()
-        local char = player.Character or player.CharacterAdded:Wait()
-        local holding = false
-        local target = nil
-        local bPos = nil
-        local bGyro = nil
-        local runConn = nil
-
-        local function grabPart()
-            local hit = mouse.Target
-            if hit and hit:IsA("BasePart") and hit.Anchored == false and hit.CanCollide then
-                -- Check if it's not part of the player
-                if hit.Parent ~= char and hit.Parent ~= tool then
-                    target = hit
-                    bPos = Instance.new("BodyPosition")
-                    bGyro = Instance.new("BodyGyro")
-                    bPos.MaxForce = Vector3.new(9e9, 9e9, 9e9)
-                    bGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
-                    bPos.P = 5000
-                    bPos.D = 1200
-                    bPos.Parent = target
-                    bGyro.Parent = target
-                    holding = true
-                    tool.Handle.BillboardGui.TextLabel.Text = "🧲 DRAGGING " .. target.Name
-                end
-            end
-        end
-
-        local function releasePart()
-            if bPos then bPos:Destroy() end
-            if bGyro then bGyro:Destroy() end
-            bPos = nil; bGyro = nil
-            target = nil
-            holding = false
-            tool.Handle.BillboardGui.TextLabel.Text = "🧲 CLICK TO GRAB"
-        end
-
-        local function launchPart()
-            if holding and target then
-                local vel = (mouse.Hit.Position - target.Position).Unit * 200
-                local bv = Instance.new("BodyVelocity")
-                bv.Velocity = vel
-                bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
-                bv.Parent = target
-                task.delay(1.5, function() if bv then bv:Destroy() end end)
-                releasePart()
-            end
-        end
-
-        tool.Equipped:Connect(function()
-            mouse.Button1Down:Connect(function()
-                if not holding then grabPart() else releasePart() end
-            end)
-            mouse.Button2Down:Connect(launchPart)
-            runConn = game:GetService("RunService").Heartbeat:Connect(function()
-                if holding and target and bPos then
-                    bPos.Position = mouse.Hit.Position
-                    bGyro.CFrame = CFrame.new(mouse.Hit.Position, mouse.Hit.Position + Vector3.new(0,1,0))
-                end
-            end)
-        end)
-
-        tool.Unequipped:Connect(function()
-            releasePart()
-            if runConn then runConn:Disconnect() end
-        end)
-
-        -- Also handle character death
-        player.CharacterAdded:Connect(function(newChar)
-            char = newChar
-            releasePart()
-        end)
-    ]]
-
-    -- Inject the script (use loadstring to compile, then run it inside the tool)
-    local func, err = loadstring(scriptSrc)
-    if func then
-        -- We need to set the script's environment to the tool's context
-        local env = getfenv()
-        env.script = ls
-        setfenv(func, env)
-        task.spawn(func)
-    else
-        warn("Failed to compile tele script: " .. tostring(err))
-    end
-
-    teleTool.Parent = player.Backpack
-    return teleTool
-end
-
--- ========== UI ==========
-
--- Main Tab
-MainTab:CreateSection("🦅 Flight")
-local flyToggle = MainTab:CreateToggle({
-    Name = "Fly (F toggle)",
+MainTab:CreateToggle({
+    Name = "Fly",
     CurrentValue = false,
-    Callback = function(v)
-        flying = v
-        if v then startFly() else if flyBV then flyBV:Destroy() end if flyBG then flyBG:Destroy() end flyBV=nil; flyBG=nil; if flyThread then task.cancel(flyThread) end end
-    end,
+    Callback = function(val)
+        flying = val
+        local char = player.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then hum.PlatformStand = val end
+        end
+    end
+})
+
+RunService.RenderStepped:Connect(function(dt)
+    if not flying then return end
+    local char = player.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    local dir = Vector3.new()
+    if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir += camera.CFrame.LookVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir -= camera.CFrame.LookVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir -= camera.CFrame.RightVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir += camera.CFrame.RightVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.new(0, 1, 0) end
+    if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir -= Vector3.new(0, 1, 0) end
+
+    if dir.Magnitude > 0 then
+        root.CFrame = root.CFrame + (dir.Unit * FLY_SPEED * dt)
+    end
+end)
+
+MainTab:CreateSlider({
+    Name = "Fly Speed",
+    Range = {10, 200},
+    Increment = 5,
+    CurrentValue = 50,
+    Callback = function(val) FLY_SPEED = val end
 })
 
 MainTab:CreateSlider({
     Name = "WalkSpeed",
-    Range = {16, 350},
+    Range = {16, 250},
     Increment = 1,
-    CurrentValue = 100,
-    Callback = function(v) local h = getHum() if h then h.WalkSpeed = v end end,
+    CurrentValue = 16,
+    Callback = function(val)
+        local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+        if hum then hum.WalkSpeed = val end
+    end
 })
 
 MainTab:CreateSlider({
     Name = "JumpPower",
-    Range = {50, 800},
-    Increment = 1,
-    CurrentValue = 100,
-    Callback = function(v) local h = getHum() if h then h.JumpPower = v end end,
+    Range = {50, 300},
+    Increment = 5,
+    CurrentValue = 50,
+    Callback = function(val)
+        local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+        if hum then hum.JumpPower = val end
+    end
 })
 
 MainTab:CreateToggle({
     Name = "Noclip",
     CurrentValue = false,
-    Callback = function(v) toggleNoclip(v) end,
+    Callback = function(val)
+        noclip = val
+        if val then
+            task.spawn(function()
+                while noclip and player.Character do
+                    for _, part in pairs(player.Character:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                            pcall(function() PhysicsService:SetPartCollisionGroup(part, "NoCollideGroup") end)
+                        end
+                    end
+                    task.wait(0.05)
+                end
+            end)
+        else
+            local char = player.Character
+            if char then
+                for _, part in pairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        pcall(function() PhysicsService:SetPartCollisionGroup(part, "Default") end)
+                    end
+                end
+            end
+        end
+    end
 })
 
 MainTab:CreateToggle({
-    Name = "Vehicle Fly",
+    Name = "Infinite Jump",
     CurrentValue = false,
-    Callback = function(v)
-        vehicleFlyEnabled = v
-        if v then startVehicleFly() else if vFlyThread then task.cancel(vFlyThread); vFlyThread=nil end end
-        Rayfield:Notify({Title = "🚗", Content = v and "Vehicle Fly ON" or "OFF", Duration=2})
-    end,
-})
-
--- Telekinesis Tab
-TeleTab:CreateSection("🧲 FE Telekinesis Tool")
-TeleTab:CreateButton({
-    Name = "📥 Get Telekinesis Tool (FE)",
-    Callback = function()
-        local t = createTeleTool()
-        if t then
-            Rayfield:Notify({Title = "✅", Content = "Tool added to backpack. Equip it!", Duration=4})
+    Callback = function(val)
+        infiniteJump = val
+        if val then
+            if _G.InfJumpCon then _G.InfJumpCon:Disconnect() end
+            _G.InfJumpCon = UserInputService.JumpRequest:Connect(function()
+                if infiniteJump and player.Character then
+                    local hum = player.Character:FindFirstChildOfClass("Humanoid")
+                    if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+                end
+            end)
         else
-            Rayfield:Notify({Title = "❌", Content = "Failed to create tool", Duration=3})
+            if _G.InfJumpCon then
+                _G.InfJumpCon:Disconnect()
+                _G.InfJumpCon = nil
+            end
         end
-    end,
-})
-
-TeleTab:CreateButton({
-    Name = "🗑️ Remove Telekinesis",
-    Callback = function()
-        if teleTool then teleTool:Destroy(); teleTool=nil end
-        for _, item in pairs(player.Backpack:GetChildren()) do if item.Name == "FE Telekinesis" then item:Destroy() end end
-        Rayfield:Notify({Title = "🗑️", Content = "Removed", Duration=2})
-    end,
-})
-
-TeleTab:CreateLabel("📖 HOW TO USE (FE):")
-TeleTab:CreateLabel("1. Click 'Get Telekinesis Tool'")
-TeleTab:CreateLabel("2. Equip the tool from backpack")
-TeleTab:CreateLabel("3. Click any UNANCHORED part to grab")
-TeleTab:CreateLabel("4. Move mouse to drag it (others see it!)")
-TeleTab:CreateLabel("5. Right-click to launch it like a cannon")
-TeleTab:CreateLabel("6. Click again to release gently")
-TeleTab:CreateLabel("⚠️ Only works on unanchored parts (debris, props)")
-
--- Info Tab
-InfoTab:CreateSection("📌 StarCalled Hub FE")
-InfoTab:CreateLabel("Version: 3.1 FE-Ready")
-InfoTab:CreateLabel("Features: Fly, Noclip, Vehicle Fly,")
-InfoTab:CreateLabel("FE Telekinesis (replicates!)")
-InfoTab:CreateLabel("Made for Natural Disaster Survival")
-InfoTab:CreateLabel("Loaded: " .. os.date("%H:%M:%S"))
-
--- Keybind
-UserInputService.InputBegan:Connect(function(input, g)
-    if g then return end
-    if input.KeyCode == Enum.KeyCode.F then
-        flyToggle:SetValue(not flyToggle.CurrentValue)
     end
+})
+
+MainTab:CreateSection("Troll")
+
+local targetName = "Select Player"
+local flingDropdown
+
+local function refreshPlayers()
+    local names = {"Select Player"}
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= player then table.insert(names, plr.Name) end
+    end
+    return names
+end
+
+flingDropdown = MainTab:CreateDropdown({
+    Name = "Target Player",
+    Options = refreshPlayers(),
+    CurrentOption = {"Select Player"},
+    Callback = function(opt) targetName = opt[1] or "Select Player" end
+})
+
+Players.PlayerAdded:Connect(function()
+    if flingDropdown then flingDropdown:UpdateOptions(refreshPlayers()) end
+end)
+Players.PlayerRemoving:Connect(function()
+    if flingDropdown then flingDropdown:UpdateOptions(refreshPlayers()) end
 end)
 
--- Startup notify
-Rayfield:Notify({Title = "⭐ StarCalled FE", Content = "Fly(F) • Telekinesis ready", Duration=5})
+MainTab:CreateButton({
+    Name = "FE Fling",
+    Callback = function()
+        if targetName == "Select Player" then
+            Rayfield:Notify({Title = "Error", Content = "Please select a player!", Duration = 2})
+            return
+        end
+        local target = Players:FindFirstChild(targetName)
+        if not target or not target.Character then
+            Rayfield:Notify({Title = "Error", Content = "Target not found!", Duration = 2})
+            return
+        end
 
--- Cleanup on respawn
-player.CharacterAdded:Connect(function()
-    if flying then task.wait(0.3) startFly() end
-    if noclipEnabled then toggleNoclip(true) end
-    if vehicleFlyEnabled then startVehicleFly() end
-end)
+        local root = target.Character:FindFirstChild("HumanoidRootPart")
+        if not root then return end
 
-print("✅ StarCalled Hub FE loaded. Telekinesis replicates to all players!")
+        local hum = target.Character:FindFirstChildOfClass("Humanoid")
+        if hum then pcall(function() hum.PlatformStand = true end) end
+
+        local flingPart = Instance.new("Part")
+        flingPart.Size = Vector3.new(4, 4, 4)
+        flingPart.Transparency = 1
+        flingPart.CanCollide = false
+        flingPart.Anchored = false
+        flingPart.Position = root.Position + Vector3.new(0, 10, 0)
+        flingPart.Parent = Workspace
+
+        local bv = Instance.new("BodyVelocity")
+        bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+        bv.Velocity = Vector3.new(0, -150, 0)
+        bv.Parent = flingPart
+        Debris:AddItem(flingPart, 1.5)
+
+        for i = 1, 15 do
+            pcall(function() root:SetNetworkOwner(player) end)
+            RunService.Heartbeat:Wait()
+        end
+
+        root.Velocity = Vector3.new(
+            math.random(-8000, 8000),
+            math.random(4000, 9000),
+            math.random(-8000, 8000)
+        )
+        Rayfield:Notify({Title = "Flung!", Content = targetName .. " has been flung!", Duration = 3})
+    end
+})
+
+MainTab:CreateSection("Utilities")
+
+MainTab:CreateButton({
+    Name = "Load Infinite Yield",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
+            Rayfield:Notify({Title = "Success", Content = "Infinite Yield loaded!", Duration = 3})
+        end)
+    end
+})
+
+---------------------------------------
+-- 2. FE STUFF TAB
+---------------------------------------
+FETab:CreateSection("FE Scripts")
+
+FETab:CreateButton({
+    Name = "FE Inverse Gravity",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://pastebin.com/raw/96XzjEiK"))()
+        end)
+        Rayfield:Notify({Title = "FE Inverse Gravity", Content = "Loaded!", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE SCP-096",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://pastefy.app/YsJgITXR/raw"))()
+        end)
+        Rayfield:Notify({Title = "FE SCP-096", Content = "Loaded!", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE A-Train",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/giobolqv1/A-Train-by-GioBolqv1-/refs/heads/main/train.lua"))()
+        end)
+        Rayfield:Notify({Title = "FE A-Train", Content = "Loaded!", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE Fighter Animation",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://pastefy.app/wxVAgZpT/raw"))()
+        end)
+        Rayfield:Notify({Title = "FE Fighter Animation", Content = "Loaded!", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE Punch",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/0Ben1/fe/main/obf_rf6iQURzu1fqrytcnLBAvW34C9N55kS9g9G3CKz086rC47M6632sEd4ZZYB0AYgV.lua.txt", true))()
+        end)
+        Rayfield:Notify({Title = "FE Punch", Content = "Loaded! Works R15/R6.", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE Telekinesis V5",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/randomstring0/Qwerty/refs/heads/main/qwerty11.lua"))()
+        end)
+        Rayfield:Notify({Title = "FE Telekinesis V5", Content = "Loaded! Grab unanchored parts/NPCs.", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE Car Script",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/AlexCr4sh/FeScripts/main/FeCarScript.lua", true))()
+        end)
+        Rayfield:Notify({Title = "FE Car Script", Content = "Loaded!", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE Troll Animations",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/ShutUpJamesTheLoserAlt/fes/refs/heads/main/e"))()
+        end)
+        Rayfield:Notify({Title = "FE Troll Animations", Content = "Loaded!", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE Super Ring",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-SUPER-RING-PARTS-V3-WITH-NO-MESSAGE-26385"))()
+        end)
+        Rayfield:Notify({Title = "FE Super Ring", Content = "Loaded!", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE Motiona Animations",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/BeemTZy/Motiona/refs/heads/main/source.lua"))()
+        end)
+        Rayfield:Notify({Title = "FE Motiona", Content = "Loaded!", Duration = 3})
+    end
+})
+
+FETab:CreateSection("R6 & R15 FE Scripts")
+
+FETab:CreateButton({
+    Name = "AquaMatrix (320+ FE Animations R6/R15)",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/ExploitFin/AquaMatrix/refs/heads/AquaMatrix/AquaMatrix"))()
+        end)
+        Rayfield:Notify({Title = "AquaMatrix", Content = "270+ R6 & 50+ R15 FE Animations!", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE Neko (R6 Only)",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/Gazer-Ha/Neko-v1/main/Extremely Broken"))()
+        end)
+        Rayfield:Notify({Title = "FE Neko", Content = "Loaded! R6 only.", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE Ender (R6 Only)",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/randomstring0/Qwerty/refs/heads/main/qwerty18.lua"))()
+        end)
+        Rayfield:Notify({Title = "FE Ender", Content = "Loaded! R6 only.", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE Btools V5 (R6 & R15)",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://pastebin.com/raw/v9P6zsuW", true))()
+        end)
+        Rayfield:Notify({Title = "FE Btools V5", Content = "Loaded! Works R6 & R15.", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE Bird (R6 & R15)",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/0Ben1/fe/main/Fe%20Bird%20R6%20and%20R15"))()
+        end)
+        Rayfield:Notify({Title = "FE Bird", Content = "Loaded! Works R6 & R15.", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE Honored (R6 & R15)",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/Cortzalno666/NectoVerse-Industries-Data/master/Scripts Folder/Honored.lua", true))()
+        end)
+        Rayfield:Notify({Title = "FE Honored", Content = "Loaded! Works R6 & R15.", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE Tool Draw (R6 & R15)",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/Affexter/Programs/refs/heads/main/scripts/tooldrawFE.lua"))()
+        end)
+        Rayfield:Notify({Title = "FE Tool Draw", Content = "Loaded! Works R6 & R15.", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE Animation Hub (R6 & R15)",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/echelonvanta/Scripts/refs/heads/main/Animstions Hub/animation.lua"))()
+        end)
+        Rayfield:Notify({Title = "FE Animation Hub", Content = "Loaded! Works R6 & R15.", Duration = 3})
+    end
+})
+
+FETab:CreateSection("FE Troll & Misc")
+
+FETab:CreateButton({
+    Name = "FE Ragdoll (Universal)",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/shakk-code/fe-ragdoll-script/refs/heads/main/script.lua", true))()
+        end)
+        Rayfield:Notify({Title = "FE Ragdoll", Content = "Loaded! Universal R6/R15.", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE Dropkick Fling",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/gsm231/Fe-DropKick/refs/heads/main/V0.1"))()
+        end)
+        Rayfield:Notify({Title = "FE Dropkick", Content = "Loaded! Instant fling on touch.", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE Invisible",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://pastebin.com/raw/K0khSQFN"))()
+        end)
+        Rayfield:Notify({Title = "FE Invisible", Content = "Loaded!", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE Animation Pack",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://pastebin.com/raw/tcTds0ky"))()
+        end)
+        Rayfield:Notify({Title = "FE Animation Pack", Content = "Loaded!", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE Animation Hub V2.5 (R6)",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/Emerson2-creator/Scripts-Roblox/refs/heads/main/ScriptR6/AnimGuiV2.lua"))()
+        end)
+        Rayfield:Notify({Title = "FE Animation Hub V2.5", Content = "Loaded! R6.", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "Open-FE Reanimation Hub",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/Blukezz/Open-FE/refs/heads/main/Main.lua"))()
+        end)
+        Rayfield:Notify({Title = "Open-FE", Content = "Loaded! Reanimation hub.", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE Bring & Fling Players",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/Bac0nHck/Scripts/main/BringFlingPlayers"))()
+        end)
+        Rayfield:Notify({Title = "FE Bring Fling", Content = "Loaded!", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE Zombie Fling",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://pastefy.app/w7KnPY70/raw", true))()
+        end)
+        Rayfield:Notify({Title = "FE Zombie Fling", Content = "Loaded!", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE Control NPCs",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://pastefy.app/x8nWWq0M/raw", true))()
+        end)
+        Rayfield:Notify({Title = "FE Control NPCs", Content = "Loaded!", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE Part Mover (Unanchored)",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://pastefy.app/Vcuyg09O/raw", true))()
+        end)
+        Rayfield:Notify({Title = "FE Part Mover", Content = "Loaded! Move unanchored parts.", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE GigaChad Hub",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/OWJBWKQLAISH/GigaChad-Hub/main/Protected_3038811338432694.lua.txt"))()
+        end)
+        Rayfield:Notify({Title = "GigaChad Hub", Content = "Loaded!", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE Ocfi Animations (Obfuscated)",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/ocfi/Animations-obfus/refs/heads/main/obfus"))()
+        end)
+        Rayfield:Notify({Title = "Ocfi Animations", Content = "Loaded!", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE System Broken",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/H20CalibreYT/SystemBroken/main/script"))()
+        end)
+        Rayfield:Notify({Title = "FE System Broken", Content = "Loaded!", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE Nameless Admin (No Kick)",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/FD2Team/Nameless-Admin-No-Byfron-Kick/main/Source", true))()
+        end)
+        Rayfield:Notify({Title = "Nameless Admin", Content = "Loaded! FE admin no kick.", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "Fates Admin (FE Features)",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/fatesc/fates-admin/main/main.lua"))()
+        end)
+        Rayfield:Notify({Title = "Fates Admin", Content = "Loaded! FE admin script.", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "Herbert V1 FE Bypass",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/LuaGunsX/HerbertV1/main/main.lua", true))()
+        end)
+        Rayfield:Notify({Title = "Herbert V1", Content = "Loaded! FE bypass.", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE Punch Fling",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/fedoratums/Base-Script/Base-Script/fedoratum punch fling", true))()
+        end)
+        Rayfield:Notify({Title = "FE Punch Fling", Content = "Loaded!", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE Tool Rotator",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://pastebin.com/raw/dkufMsdA", true))()
+        end)
+        Rayfield:Notify({Title = "FE Tool Rotator", Content = "Loaded!", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "Game Hub V5",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/GamerScripter/Game-Hub/main/loader"))()
+        end)
+        Rayfield:Notify({Title = "Game Hub V5", Content = "Loaded! Lots of FE fun.", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "FE Fighter (Gale Inspired)",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-FE-Fighter-inspired-by-Gale-21557"))()
+        end)
+        Rayfield:Notify({Title = "FE Fighter", Content = "Loaded! Gale-inspired.", Duration = 3})
+    end
+})
+
+FETab:CreateSection("NDS Specific Scripts")
+
+FETab:CreateButton({
+    Name = "Mercury Hub (Auto Win, ESP, Teleport)",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/celestialkendall/mercuryhub/refs/heads/main/mainnds.lua"))()
+        end)
+        Rayfield:Notify({Title = "Mercury Hub", Content = "Loaded! Auto Win, ESP, Teleports.", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "Lua Land Hub (Anti-Fall, Bridge, Balloon)",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/Angelo-Gitland/Natural-Disaster-Survival-Script-Lua-Land/refs/heads/main/Natural Disaster Survival Lua Land Hub"))()
+        end)
+        Rayfield:Notify({Title = "Lua Land Hub", Content = "Loaded! Anti-Fall, Bridge, Balloon & more.", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "NDS Hub (Auto Win, Fly)",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/Thebestofhack123/2.0/refs/heads/main/NDS"))()
+        end)
+        Rayfield:Notify({Title = "NDS Hub", Content = "Loaded!", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "Plutonium (Auto Farm Wins)",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/PawsThePaw/Plutonium.AA/main/Plutonium.Loader.lua", true))()
+        end)
+        Rayfield:Notify({Title = "Plutonium", Content = "Loaded! Auto farm wins.", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "NDS Super Ring",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/Lukashub-coder/super-ring/refs/heads/main/Super ring!!"))()
+        end)
+        Rayfield:Notify({Title = "NDS Super Ring", Content = "Loaded!", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "Spider NDS Script (Auto Win, Inf Jump)",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/SpiderScriptRB/Natural-Disaster-Survival/refs/heads/main/1.0.2 Version Script.txt"))()
+        end)
+        Rayfield:Notify({Title = "Spider NDS", Content = "Loaded! Auto Win + Inf Jump.", Duration = 3})
+    end
+})
+
+FETab:CreateButton({
+    Name = "NullFire Hub",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/InfernusScripts/Null-Fire/main/Loader"))()
+        end)
+        Rayfield:Notify({Title = "NullFire Hub", Content = "Loaded!", Duration = 3})
+    end
+})
+
+---------------------------------------
+-- 3. NOTES TAB
+---------------------------------------
+NotesTab:CreateSection("StarCalled Hub v6.3")
+NotesTab:CreateLabel("Made by: Jayden")
+NotesTab:CreateLabel("Game: Natural Disaster Survival")
+NotesTab:CreateLabel("Version: 6.3")
+NotesTab:CreateLabel("Main: Fly, Noclip, Speed, Jump, Fling")
+NotesTab:CreateLabel("FE Stuff: 40+ keyless FE scripts")
+NotesTab:CreateLabel("Sections: FE Scripts | R6+R15 | Troll | NDS")
+
+---------------------------------------
+-- Ready
+---------------------------------------
+Rayfield:Notify({Title = "StarCalled Hub v6.3", Content = "Loaded! Enjoy.", Duration = 5})
+print("StarCalled Hub v6.3 - NDS Ready")
