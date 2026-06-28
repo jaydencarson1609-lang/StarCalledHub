@@ -90,7 +90,6 @@ MainTab:CreateToggle({
                 -- Configure
                 coreProxy.AutoPlay    = true
                 coreProxy.MoreStats   = false
-                coreProxy.PerfectSick = 1
                 coreProxy.Performance = 5
 
                 -- Memory-Mapped Pipeline
