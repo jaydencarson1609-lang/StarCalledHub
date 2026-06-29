@@ -21,9 +21,46 @@ local Window = Rayfield:CreateWindow({
     KeySystem = false,
 })
 
--- Services
 local Players = game:GetService("Players")
 local player  = Players.LocalPlayer
+
+-- Load the autoplay library once and cache it
+local autoLib = nil
+local libLoaded = false
+
+local function loadLib()
+    if libLoaded then return autoLib end
+
+    local ok, result = pcall(function()
+        return loadstring(game:HttpGet(
+            "https://raw.githubusercontent.com/Null-Cherry/Null-Fire/refs/heads/main/Core/Loaders/Funky-Friday/Autoplay.lua",
+            true
+        ))()
+    end)
+
+    if ok and type(result) == "table" then
+        autoLib = result
+        libLoaded = true
+        return autoLib
+    end
+
+    -- Retry once with a short delay
+    task.wait(1)
+    ok, result = pcall(function()
+        return loadstring(game:HttpGet(
+            "https://raw.githubusercontent.com/Null-Cherry/Null-Fire/refs/heads/main/Core/Loaders/Funky-Friday/Autoplay.lua",
+            true
+        ))()
+    end)
+
+    if ok and type(result) == "table" then
+        autoLib = result
+        libLoaded = true
+        return autoLib
+    end
+
+    return nil
+end
 
 ---------------------------------------
 -- TABS
@@ -40,106 +77,60 @@ MainTab:CreateToggle({
     Name         = "Auto Player",
     CurrentValue = false,
     Callback     = function(val)
-        if val then
-            task.spawn(function()
-                -- =================================================
-                -- APEX ARCHITECTURE: MEMORY-MAPPED PIPELINE
-                -- =================================================
-                local os_clock     = os.clock
-                local task_spawn   = task.spawn
-                local task_wait    = task.wait
-                local pcall        = pcall
-                local setmetatable = setmetatable
-                local b_create     = buffer.create
-                local b_writef64   = buffer.writef64
-                local b_readf64    = buffer.readf64
-                local RunService   = game:GetService("RunService")
-                local PreRender    = RunService.PreRender
+        task.spawn(function()
+            local lib = loadLib()
 
-                -- Secure Fetch with Exponential Backoff
-                local fetchSuccess, rawLib
-                local delayTime = 0.5
-                for attempt = 1, 3 do
-                    fetchSuccess, rawLib = pcall(function()
-                        return loadstring(game:HttpGet(
-                            "https://raw.githubusercontent.com/Null-Cherry/Null-Fire/refs/heads/main/Core/Loaders/Funky-Friday/Autoplay.lua",
-                            true
-                        ))()
-                    end)
-                    if fetchSuccess and type(rawLib) == "table" then break end
-                    task_wait(delayTime)
-                    delayTime = delayTime * 2
-                end
-
-                if not (fetchSuccess and type(rawLib) == "table") then
-                    Rayfield:Notify({
-                        Title    = "★ StarCalled Hub",
-                        Content  = "Auto Player failed to load. Try again.",
-                        Duration = 4,
-                    })
-                    return
-                end
-
-                -- Immutable Sandbox Proxy
-                local coreProxy = setmetatable({}, {
-                    __index     = rawLib,
-                    __newindex  = function(t, k, v) rawLib[k] = v end,
-                    __metatable = "LOCKED"
+            if not lib then
+                Rayfield:Notify({
+                    Title    = "★ StarCalled Hub",
+                    Content  = "Auto Player failed to load. Try again.",
+                    Duration = 4,
                 })
+                return
+            end
 
-                -- Configure
-                coreProxy.AutoPlay    = true
-                coreProxy.MoreStats   = false
-                coreProxy.Performance = 5
+            -- The library uses settings.AutoPlay as the control flag
+            lib.AutoPlay = val
 
-                -- Memory-Mapped Pipeline
-                local mem_ring      = b_create(64)
-                local ptr_offset    = 0
-                local lastTimestamp = os_clock()
+            if val then
+                -- Set performance/accuracy defaults
+                lib.Performance  = 0       -- 0 = best quality, 7 = max performance
+                lib.PerfectSick  = 1       -- aim for Sick accuracy
+                lib.MoreStats    = false
 
-                local connection
-                connection = PreRender:Connect(function()
-                    if not rawLib then
-                        connection:Disconnect()
-                        return
-                    end
-
-                    local currentTimestamp = os_clock()
-                    local delta = currentTimestamp - lastTimestamp
-                    lastTimestamp = currentTimestamp
-
-                    b_writef64(mem_ring, ptr_offset, delta)
-                    ptr_offset = (ptr_offset + 8) % 64
-
-                    -- Kahan Summation for zero-loss float accuracy
-                    local sum, c = 0.0, 0.0
-                    for offset = 0, 56, 8 do
-                        local y = b_readf64(mem_ring, offset) - c
-                        local t = sum + y
-                        c   = (t - sum) - y
-                        sum = t
-                    end
-
-                    if sum > 0.036 then
-                        coreProxy.MoreStats   = false
-                        coreProxy.Performance = 5
-                    end
-
-                    coreProxy.AutoPlay = true
-                end)
+                lib.Chances.Sick  = 100
+                lib.Chances.Good  = 0
+                lib.Chances.Ok    = 0
+                lib.Chances.Bad   = 0
+                lib.Chances.Miss  = 0
 
                 Rayfield:Notify({
                     Title    = "★ StarCalled Hub",
-                    Content  = "Auto Player is running!",
+                    Content  = "Auto Player enabled!",
                     Duration = 3,
                 })
-            end)
-        else
-            Rayfield:Notify({
-                Title    = "★ StarCalled Hub",
-                Content  = "Auto Player disabled. Rejoin to fully stop.",
-                Duration = 3,
-            })
+            else
+                Rayfield:Notify({
+                    Title    = "★ StarCalled Hub",
+                    Content  = "Auto Player disabled.",
+                    Duration = 3,
+                })
+            end
+        end)
+    end
+})
+
+MainTab:CreateSection("★ Accuracy")
+
+MainTab:CreateSlider({
+    Name         = "Sick %",
+    Range        = {0, 100},
+    Increment    = 1,
+    CurrentValue = 100,
+    Callback     = function(val)
+        if autoLib then
+            autoLib.Chances.Sick = val
+            autoLib.Chances.Miss = 100 - val
         end
     end
 })
