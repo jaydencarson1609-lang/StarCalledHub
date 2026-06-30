@@ -17,13 +17,14 @@ local HUB = {
 
 -- Games
 local Games = {
-    { Name = "★ Project Gambling",          Script = "projectgambling.lua"  },
-    { Name = "★ Baby Pursuers",             Script = "babypursuers.lua"     },
-    { Name = "★ Build Anything",            Script = "buildanything.lua"    },
-    { Name = "★ Keyboard Escape",           Script = "keyboardescape.lua"   },
-    { Name = "★ Clasher Royale",            Script = "ClasherRoyale.lua"    },
-    { Name = "★ Natural Disaster Survival", Script = "NDS.lua"              },
-    { Name = "★ Funky Friday",              Script = "funkyfriday.lua"      },
+    { Name = "★ Project Gambling",          Script = "projectgambling.lua"    },
+    { Name = "★ Baby Pursuers",             Script = "babypursuers.lua"       },
+    { Name = "★ Build Anything",            Script = "buildanything.lua"      },
+    { Name = "★ Keyboard Escape",           Script = "keyboardescape.lua"     },
+    { Name = "★ Clasher Royale",            Script = "ClasherRoyale.lua"      },
+    { Name = "★ Natural Disaster Survival", Script = "NDS.lua"                },
+    { Name = "★ Funky Friday",              Script = "funkyfriday.lua"        },
+    { Name = "★ Wings for Brainrots",       Script = "wingsforbrainrots.lua"  },
 }
 
 -- Rayfield
