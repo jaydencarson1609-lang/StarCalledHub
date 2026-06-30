@@ -1,7 +1,7 @@
 -- ╔══════════════════════════════════════════════╗
 -- ║                                              ║
--- ║    ★ StarCalled Hub  |  Wings for Brainrots  ║
--- ║              Made by Jayden                  ║
+-- ║ ★ StarCalled Hub | Wings for Brainrots      ║
+-- ║ Made by Jayden                               ║
 -- ║                                              ║
 -- ╚══════════════════════════════════════════════╝
 
@@ -9,47 +9,44 @@ local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 task.wait(0.5)
 
 local Window = Rayfield:CreateWindow({
-    Name            = "★ StarCalled Hub | Wings for Brainrots",
-    LoadingTitle    = "★ StarCalled Hub",
+    Name = "★ StarCalled Hub | Wings for Brainrots",
+    LoadingTitle = "★ StarCalled Hub",
     LoadingSubtitle = "Wings for Brainrots",
     ConfigurationSaving = {
-        Enabled    = true,
+        Enabled = true,
         FolderName = "StarCalledHub",
-        FileName   = "WFB_Config"
+        FileName = "WFB_Config"
     },
-    Discord   = { Enabled = false },
+    Discord = { Enabled = false },
     KeySystem = false,
 })
 
-local Players     = game:GetService("Players")
-local RunService  = game:GetService("RunService")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local player      = Players.LocalPlayer
+local player = Players.LocalPlayer
 
 -- ╔══════════════════════════════════════════════╗
--- ║               RARITY CONFIG                  ║
+-- ║ RARITY CONFIG ║
 -- ╚══════════════════════════════════════════════╝
-
 local RARITIES = {
-    { name = "Common",    folder = "Common",    pos = Vector3.new(22,  8,  134)  },
-    { name = "Uncommon",  folder = "Uncommon",  pos = Vector3.new(35,  1,  295)  },
-    { name = "Rare",      folder = "Rare",      pos = Vector3.new(31,  1,  516)  },
-    { name = "Epic",      folder = "Epic",      pos = Vector3.new(32,  1,  824)  },
-    { name = "Legendary", folder = "Legendary", pos = Vector3.new(33,  1, 1253)  },
-    { name = "Mythical",  folder = "Mythical",  pos = Vector3.new(31,  1, 1822)  },
-    { name = "Cosmic",    folder = "Cosmic",    pos = Vector3.new( 0, 13, 6102)  },
+    { name = "Common", folder = "Common", pos = Vector3.new(22, 8, 134) },
+    { name = "Uncommon", folder = "Uncommon", pos = Vector3.new(35, 1, 295) },
+    { name = "Rare", folder = "Rare", pos = Vector3.new(31, 1, 516) },
+    { name = "Epic", folder = "Epic", pos = Vector3.new(32, 1, 824) },
+    { name = "Legendary", folder = "Legendary", pos = Vector3.new(33, 1, 1253) },
+    { name = "Mythical", folder = "Mythical", pos = Vector3.new(31, 1, 1822) },
+    { name = "Cosmic", folder = "Cosmic", pos = Vector3.new(0, 13, 6102) },
+    { name = "Celestial", folder = "Celestial", pos = Vector3.new(34, 1, 4051) },
 }
 
-local SUBMIT_POS     = Vector3.new(11, 16, 13)
-local selectedRarity = RARITIES[7] -- default Cosmic
+local SUBMIT_POS = Vector3.new(11, 16, 13)
+local selectedRarity = RARITIES[8] -- default Celestial
 
-local farmActive  = false
-local farmThread  = nil
-
-
+local farmActive = false
+local farmThread = nil
 
 local function isPaused()
-    -- Check if game is paused/frozen (anti-cheat trigger)
     local gui = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
     if gui then
         for _, v in ipairs(gui:GetDescendants()) do
@@ -65,7 +62,6 @@ local function isPaused()
 end
 
 local function safeTeleport(pos)
-    -- Small random offset so we dont look like a bot teleporting to exact coords
     local rx = (math.random() - 0.5) * 2
     local rz = (math.random() - 0.5) * 2
     local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
@@ -75,9 +71,8 @@ local function safeTeleport(pos)
 end
 
 -- ╔══════════════════════════════════════════════╗
--- ║               HELPERS                        ║
+-- ║ HELPERS ║
 -- ╚══════════════════════════════════════════════╝
-
 local function getRootPart()
     local c = player.Character
     return c and c:FindFirstChild("HumanoidRootPart")
@@ -91,15 +86,11 @@ local function teleport(pos)
 end
 
 local function tryPickup(item, prompt)
-    -- Zero out HoldDuration so prompt triggers instantly
     pcall(function() prompt.HoldDuration = 0 end)
-
-    -- Fire all methods at once
     pcall(fireproximityprompt, prompt)
     pcall(firesignal, prompt.Triggered, player)
     pcall(function() prompt:InputHoldBegin() prompt:InputHoldEnd() end)
-
-    -- ClickDetector fallback
+    
     for _, v in ipairs(item:GetDescendants()) do
         if v:IsA("ClickDetector") then
             pcall(fireclickdetector, v)
@@ -113,88 +104,73 @@ notifEvent.OnClientEvent:Connect(function(message, notifType)
     if message and message:lower():find("carry limit") then
         safeTeleport(SUBMIT_POS)
         Rayfield:Notify({
-            Title    = "★ StarCalled Hub",
-            Content  = "Carry limit! Rushing to lobby...",
+            Title = "★ StarCalled Hub",
+            Content = "Carry limit! Rushing to lobby...",
             Duration = 3,
         })
     end
 end)
 
 -- ╔══════════════════════════════════════════════╗
--- ║               FARM LOOP                      ║
+-- ║ FARM LOOP ║
 -- ╚══════════════════════════════════════════════╝
-
 local function farmLoop()
     while farmActive do
         local rarity = selectedRarity
-
-        -- Step 1: Teleport to rarity zone
         safeTeleport(rarity.pos)
-        task.wait(1.5) -- wait for server to load the zone items
-
-        -- Step 2: Collect all brainrots in zone
-        local spawners   = workspace:FindFirstChild("ItemSpawners")
+        task.wait(1.5)
+        
+        local spawners = workspace:FindFirstChild("ItemSpawners")
         local zoneFolder = spawners and spawners:FindFirstChild(rarity.folder)
-
+        
         if zoneFolder then
             for _, item in ipairs(zoneFolder:GetChildren()) do
                 if not farmActive then break end
-
-                -- Wait if game is paused
                 while isPaused() do task.wait(0.5) end
-
-                local mesh   = item:FindFirstChild("Mesh")
+                
+                local mesh = item:FindFirstChild("Mesh")
                 local prompt = mesh and mesh:FindFirstChildOfClass("ProximityPrompt")
-
+                
                 if prompt then
-                    local pos = (mesh:IsA("BasePart") and mesh.Position)
-                        or (item:IsA("BasePart") and item.Position)
-                        or rarity.pos
-
-                    -- Teleport onto the item slowly (less suspicious)
+                    local pos = (mesh:IsA("BasePart") and mesh.Position) or (item:IsA("BasePart") and item.Position) or rarity.pos
                     safeTeleport(Vector3.new(pos.X, pos.Y, pos.Z))
-                    task.wait(0.4) -- let server register we are here
-
-                    -- Spam the prompt for up to 5 seconds until item disappears (picked up)
+                    task.wait(0.4)
+                    
                     local spamEnd = tick() + 5
                     while tick() < spamEnd and item.Parent ~= nil do
                         if not farmActive then break end
                         tryPickup(item, prompt)
                         task.wait(0.1)
                     end
-
-                    task.wait(0.3) -- small pause before moving to next item
+                    task.wait(0.3)
                 end
             end
         else
             Rayfield:Notify({
-                Title    = "★ StarCalled Hub",
-                Content  = rarity.name .. " area not loaded yet, retrying...",
+                Title = "★ StarCalled Hub",
+                Content = rarity.name .. " area not loaded yet, retrying...",
                 Duration = 3,
             })
             task.wait(2)
             continue
         end
-
-        -- Step 3: Go to lobby to submit
+        
         safeTeleport(SUBMIT_POS)
         task.wait(1)
     end
 end
 
 -- ╔══════════════════════════════════════════════╗
--- ║               TABS                           ║
+-- ║ TABS ║
 -- ╚══════════════════════════════════════════════╝
-
-local MainTab     = Window:CreateTab("★ Main",     4483362458)
-local UpgradeTab  = Window:CreateTab("★ Upgrades", 4483362458)
-local ExtrasTab   = Window:CreateTab("★ Extras",   4483362458)
-local NotesTab    = Window:CreateTab("★ Notes",    4483362458)
+local MainTab = Window:CreateTab("★ Main", 4483362458)
+local UpgradeTab = Window:CreateTab("★ Upgrades", 4483362458)
+local ExtrasTab = Window:CreateTab("★ Extras", 4483362458)
+local NotesTab = Window:CreateTab("★ Notes", 4483362458)
 
 -- ╔══════════════════════════════════════════════╗
--- ║               MAIN TAB                       ║
+-- ║ MAIN TAB ║
 -- ╚══════════════════════════════════════════════╝
-
 MainTab:CreateSection("★ Auto Farm")
 
 local rarityNames = {}
@@ -203,18 +179,18 @@ for _, r in ipairs(RARITIES) do
 end
 
 MainTab:CreateDropdown({
-    Name            = "Select Rarity",
-    Options         = rarityNames,
-    CurrentOption   = {"Cosmic"},
+    Name = "Select Rarity",
+    Options = rarityNames,
+    CurrentOption = {"Celestial"},
     MultipleOptions = false,
-    Callback        = function(selected)
+    Callback = function(selected)
         local choice = type(selected) == "table" and selected[1] or selected
         for _, r in ipairs(RARITIES) do
             if r.name == choice then
                 selectedRarity = r
                 Rayfield:Notify({
-                    Title    = "★ StarCalled Hub",
-                    Content  = "Rarity set to " .. r.name,
+                    Title = "★ StarCalled Hub",
+                    Content = "Rarity set to " .. r.name,
                     Duration = 2,
                 })
                 break
@@ -224,14 +200,14 @@ MainTab:CreateDropdown({
 })
 
 MainTab:CreateToggle({
-    Name         = "Auto Farm",
+    Name = "Auto Farm",
     CurrentValue = false,
-    Callback     = function(val)
+    Callback = function(val)
         farmActive = val
         if val then
             Rayfield:Notify({
-                Title    = "★ StarCalled Hub",
-                Content  = "Farming " .. selectedRarity.name .. " brainrots...",
+                Title = "★ StarCalled Hub",
+                Content = "Farming " .. selectedRarity.name .. " brainrots...",
                 Duration = 3,
             })
             farmThread = task.spawn(farmLoop)
@@ -241,8 +217,8 @@ MainTab:CreateToggle({
                 farmThread = nil
             end
             Rayfield:Notify({
-                Title    = "★ StarCalled Hub",
-                Content  = "Auto Farm stopped.",
+                Title = "★ StarCalled Hub",
+                Content = "Auto Farm stopped.",
                 Duration = 3,
             })
         end
@@ -250,9 +226,8 @@ MainTab:CreateToggle({
 })
 
 MainTab:CreateSection("★ Teleport")
-
 MainTab:CreateButton({
-    Name     = "Go to Selected Rarity Zone",
+    Name = "Go to Selected Rarity Zone",
     Callback = function()
         safeTeleport(selectedRarity.pos)
         Rayfield:Notify({Title = "★ StarCalled Hub", Content = "Teleported to " .. selectedRarity.name .. "!", Duration = 3})
@@ -260,7 +235,7 @@ MainTab:CreateButton({
 })
 
 MainTab:CreateButton({
-    Name     = "Go to Lobby (Submit)",
+    Name = "Go to Lobby (Submit)",
     Callback = function()
         safeTeleport(SUBMIT_POS)
         Rayfield:Notify({Title = "★ StarCalled Hub", Content = "Teleported to Lobby!", Duration = 3})
@@ -268,11 +243,10 @@ MainTab:CreateButton({
 })
 
 MainTab:CreateSection("★ Utilities")
-
 MainTab:CreateToggle({
-    Name         = "Anti AFK",
+    Name = "Anti AFK",
     CurrentValue = false,
-    Callback     = function(val)
+    Callback = function(val)
         if val then
             _G.AntiAFK = RunService.Heartbeat:Connect(function()
                 player:Move(Vector3.new(0, 0, 0))
@@ -287,7 +261,7 @@ MainTab:CreateToggle({
 })
 
 MainTab:CreateButton({
-    Name     = "Load Infinite Yield",
+    Name = "Load Infinite Yield",
     Callback = function()
         pcall(function()
             loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
@@ -297,11 +271,9 @@ MainTab:CreateButton({
 })
 
 -- ╔══════════════════════════════════════════════╗
--- ║               UPGRADES TAB                   ║
+-- ║ UPGRADES TAB ║
 -- ╚══════════════════════════════════════════════╝
-
 local upgradeRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("UpgradeRequested")
-
 local autoUpgradeThreads = {}
 
 local function startAutoUpgrade(stat)
@@ -324,37 +296,32 @@ local function stopAutoUpgrade(stat)
 end
 
 UpgradeTab:CreateSection("★ Auto Upgrade")
-
 UpgradeTab:CreateToggle({
-    Name         = "Auto Upgrade Speed",
+    Name = "Auto Upgrade Speed",
     CurrentValue = false,
-    Callback     = function(val)
+    Callback = function(val)
         if val then startAutoUpgrade("Speed") else stopAutoUpgrade("Speed") end
     end
 })
-
 UpgradeTab:CreateToggle({
-    Name         = "Auto Upgrade Stamina",
+    Name = "Auto Upgrade Stamina",
     CurrentValue = false,
-    Callback     = function(val)
+    Callback = function(val)
         if val then startAutoUpgrade("Stamina") else stopAutoUpgrade("Stamina") end
     end
 })
-
 UpgradeTab:CreateToggle({
-    Name         = "Auto Upgrade Carry",
+    Name = "Auto Upgrade Carry",
     CurrentValue = false,
-    Callback     = function(val)
+    Callback = function(val)
         if val then startAutoUpgrade("Carry") else stopAutoUpgrade("Carry") end
     end
 })
 
 UpgradeTab:CreateSection("★ Rebirth")
-
 local rebirthRemote = ReplicatedStorage:WaitForChild("Events"):WaitForChild("RequestRebirth")
-
 UpgradeTab:CreateButton({
-    Name     = "Rebirth",
+    Name = "Rebirth",
     Callback = function()
         pcall(function() rebirthRemote:FireServer() end)
         Rayfield:Notify({Title = "★ StarCalled Hub", Content = "Rebirth requested!", Duration = 3})
@@ -363,9 +330,9 @@ UpgradeTab:CreateButton({
 
 local autoRebirthThread = nil
 UpgradeTab:CreateToggle({
-    Name         = "Auto Rebirth",
+    Name = "Auto Rebirth",
     CurrentValue = false,
-    Callback     = function(val)
+    Callback = function(val)
         if val then
             autoRebirthThread = task.spawn(function()
                 while val do
@@ -383,19 +350,15 @@ UpgradeTab:CreateToggle({
 })
 
 UpgradeTab:CreateSection("★ Max Upgrades")
-
 UpgradeTab:CreateButton({
-    Name     = "Max Speed (x108)",
+    Name = "Max Speed (x108)",
     Callback = function()
-        pcall(function()
-            upgradeRemote:FireServer("Speed", 108)
-        end)
+        pcall(function() upgradeRemote:FireServer("Speed", 108) end)
         Rayfield:Notify({Title = "★ StarCalled Hub", Content = "Max Speed fired!", Duration = 3})
     end
 })
-
 UpgradeTab:CreateButton({
-    Name     = "Max Stamina",
+    Name = "Max Stamina",
     Callback = function()
         for i = 1, 50 do
             pcall(function() upgradeRemote:FireServer("Stamina", 1) end)
@@ -404,9 +367,8 @@ UpgradeTab:CreateButton({
         Rayfield:Notify({Title = "★ StarCalled Hub", Content = "Max Stamina fired!", Duration = 3})
     end
 })
-
 UpgradeTab:CreateButton({
-    Name     = "Max Carry",
+    Name = "Max Carry",
     Callback = function()
         for i = 1, 50 do
             pcall(function() upgradeRemote:FireServer("Carry", 1) end)
@@ -417,9 +379,8 @@ UpgradeTab:CreateButton({
 })
 
 -- ╔══════════════════════════════════════════════╗
--- ║               EXTRAS TAB                     ║
+-- ║ EXTRAS TAB ║
 -- ╚══════════════════════════════════════════════╝
-
 local wingsRemote = nil
 local function getWingsRemote()
     if wingsRemote then return wingsRemote end
@@ -434,23 +395,22 @@ local function getWingsRemote()
 end
 
 ExtrasTab:CreateSection("★ Wings")
-
 ExtrasTab:CreateToggle({
-    Name         = "Wing Animation",
+    Name = "Wing Animation",
     CurrentValue = false,
-    Callback     = function(val)
+    Callback = function(val)
         local remote = getWingsRemote()
         if remote then
             pcall(function() remote:FireServer(val) end)
             Rayfield:Notify({
-                Title    = "★ StarCalled Hub",
-                Content  = val and "Wings enabled!" or "Wings disabled!",
+                Title = "★ StarCalled Hub",
+                Content = val and "Wings enabled!" or "Wings disabled!",
                 Duration = 2,
             })
         else
             Rayfield:Notify({
-                Title    = "★ StarCalled Hub",
-                Content  = "Wings remote not found. Make sure you have wings equipped.",
+                Title = "★ StarCalled Hub",
+                Content = "Wings remote not found. Make sure you have wings equipped.",
                 Duration = 4,
             })
         end
@@ -458,34 +418,28 @@ ExtrasTab:CreateToggle({
 })
 
 ExtrasTab:CreateSection("★ Lucky Block")
-
 local LUCKY_BLOCK_TYPES = {
     "Normal", "Golden", "Lava", "Rainbow",
     "Diamond", "Galaxy", "Hacker", "UFO"
 }
-
 local selectedLuckyBlock = "Lava"
 
 ExtrasTab:CreateDropdown({
-    Name            = "Lucky Block Type",
-    Options         = LUCKY_BLOCK_TYPES,
-    CurrentOption   = {"Lava"},
+    Name = "Lucky Block Type",
+    Options = LUCKY_BLOCK_TYPES,
+    CurrentOption = {"Lava"},
     MultipleOptions = false,
-    Callback        = function(selected)
+    Callback = function(selected)
         selectedLuckyBlock = type(selected) == "table" and selected[1] or selected
     end
 })
 
 ExtrasTab:CreateButton({
-    Name     = "Open Lucky Block (Visual)",
+    Name = "Open Lucky Block (Visual)",
     Callback = function()
-        local rollRemote = ReplicatedStorage:FindFirstChild("Remotes")
-            and ReplicatedStorage.Remotes:FindFirstChild("RollLuckyBlock")
-
+        local rollRemote = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("RollLuckyBlock")
         if rollRemote then
-            -- Find a brainrot name from ReplicatedStorage.Items for the selected type
-            local itemFolder = ReplicatedStorage:FindFirstChild("Items")
-                and ReplicatedStorage.Items:FindFirstChild(selectedLuckyBlock)
+            local itemFolder = ReplicatedStorage:FindFirstChild("Items") and ReplicatedStorage.Items:FindFirstChild(selectedLuckyBlock)
             local brainrotName = "Brainrot"
             if itemFolder then
                 local children = itemFolder:GetChildren()
@@ -493,19 +447,18 @@ ExtrasTab:CreateButton({
                     brainrotName = children[math.random(1, #children)].Name
                 end
             end
-
             pcall(function()
                 firesignal(rollRemote.OnClientEvent, player, brainrotName, selectedLuckyBlock)
             end)
             Rayfield:Notify({
-                Title    = "★ StarCalled Hub",
-                Content  = "Lucky Block opened! (" .. selectedLuckyBlock .. ") — visual only",
+                Title = "★ StarCalled Hub",
+                Content = "Lucky Block opened! (" .. selectedLuckyBlock .. ") — visual only",
                 Duration = 3,
             })
         else
             Rayfield:Notify({
-                Title    = "★ StarCalled Hub",
-                Content  = "Lucky Block remote not found.",
+                Title = "★ StarCalled Hub",
+                Content = "Lucky Block remote not found.",
                 Duration = 3,
             })
         end
@@ -513,24 +466,23 @@ ExtrasTab:CreateButton({
 })
 
 -- ╔══════════════════════════════════════════════╗
--- ║               NOTES TAB                      ║
+-- ║ NOTES TAB ║
 -- ╚══════════════════════════════════════════════╝
-
 NotesTab:CreateSection("★ StarCalled Hub")
-NotesTab:CreateLabel("Made by       |  Jayden")
-NotesTab:CreateLabel("Game          |  Wings for Brainrots")
-NotesTab:CreateLabel("Version       |  1.3")
-NotesTab:CreateLabel("Main          |  Auto Farm, Rarity Select, Teleports")
-NotesTab:CreateLabel("Upgrades      |  Speed, Stamina, Carry, Rebirth")
-NotesTab:CreateLabel("Extras        |  Wings Anim, Lucky Block Visual")
+NotesTab:CreateLabel("Made by | Jayden")
+NotesTab:CreateLabel("Game | Wings for Brainrots")
+NotesTab:CreateLabel("Version | 1.3")
+NotesTab:CreateLabel("Main | Auto Farm, Rarity Select, Teleports")
+NotesTab:CreateLabel("Upgrades | Speed, Stamina, Carry, Rebirth")
+NotesTab:CreateLabel("Extras | Wings Anim, Lucky Block Visual")
 
 -- ╔══════════════════════════════════════════════╗
--- ║               READY                          ║
+-- ║ READY ║
 -- ╚══════════════════════════════════════════════╝
-
 Rayfield:Notify({
-    Title    = "★ StarCalled Hub",
-    Content  = "Wings for Brainrots ready.",
+    Title = "★ StarCalled Hub",
+    Content = "Wings for Brainrots ready. Celestial added!",
     Duration = 5,
 })
-print("★ StarCalled Hub | Wings for Brainrots Ready")
+
+print("★ StarCalled Hub | Wings for Brainrots Ready (Celestial Added)")
